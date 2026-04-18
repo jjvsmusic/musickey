@@ -65,6 +65,9 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--txt)
 .brp{background:var(--Al);color:var(--A);border-color:var(--Ab)}
 .bdk{background:#f0f0f0;color:#666;border-color:#ccc}
 .ri{font-size:11px;color:var(--mut);line-height:1.4;margin-top:2px}
+.sc{transition:all .15s}
+.sc:hover{box-shadow:var(--shm);transform:translateY(-1px)}
+.sc.active-filter{outline:2px solid currentColor}
 
 /* ── HISTORY PAGE ── */
 .hist-page{padding:1rem;height:100%;display:flex;flex-direction:column}
@@ -281,6 +284,13 @@ tr.dg-src{opacity:.35}
         </div>
       </div>
       <div class="alert ai" style="font-size:12px;margin-bottom:1rem">CSV格式每行：<code style="background:#dde8f5;padding:1px 4px;border-radius:3px;font-family:monospace">班級,座號,姓名</code>　例：<code style="background:#dde8f5;padding:1px 4px;border-radius:3px;font-family:monospace">301班,01,王小明</code>　可拖曳調整人員所屬班級</div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:1rem;flex-wrap:wrap">
+        <label style="font-size:13px;font-weight:500;color:var(--mut)">篩選班級：</label>
+        <select id="ppl-cls-filter" onchange="renderPplTbl()" style="width:140px">
+          <option value="">全部班級</option>
+        </select>
+        <span id="ppl-count" style="font-size:12px;color:var(--mut)"></span>
+      </div>
       <div class="tc"><div class="tw" id="ppl-tbl"></div></div>
     </div>
     <div id="adm-rooms" class="ap">
@@ -499,6 +509,8 @@ function defDB(){return{
 
 let DB=loadDB();
 let CFL=DB.floors[0]||'B1';
+window.CStatusFilter='';
+window.CFloorAll=false;
 let CUser=null;
 let vs=null,cp=null;
 let dragId=null;
@@ -518,7 +530,7 @@ function switchTab(t){
   document.getElementById('page-'+t).classList.add('active');
   const tabs=['borrow','hist'];const i=tabs.indexOf(t);
   if(i>=0)document.querySelectorAll('.tab-btn')[i].classList.add('active');
-  if(t==='borrow'){showNotice();renderStats();renderFT();renderRooms();}
+  if(t==='borrow'){window.CStatusFilter='';showNotice();renderStats();renderFT();renderRooms();}
   if(t==='hist'){popPHF();renderPubH();}
 }
 function openAdminLogin(){
@@ -558,33 +570,102 @@ function renderStats(){
   const bw=DB.rooms.filter(r=>r.status==='bw').length;
   const rp=DB.rooms.filter(r=>r.status==='rp').length;
   const dk=DB.rooms.filter(r=>r.kd).length;
+  const sf=window.CStatusFilter||'';
   document.getElementById('stats-row').innerHTML=
-    `<div class="sc"><div class="sl">可借用</div><div class="sv g">${av}</div></div>
-     <div class="sc"><div class="sl">借用中</div><div class="sv r">${bw}</div></div>
+    `<div class="sc" style="cursor:pointer;transition:all .15s;${sf==='av'?'outline:2px solid var(--G);':''}border-color:${sf==='av'?'var(--G)':'var(--bdr)'}" onclick="toggleStatusFilter('av')" title="點擊篩選可借用琴房">
+      <div class="sl">可借用 ${sf==='av'?'▼':''}</div><div class="sv g">${av}</div></div>
+     <div class="sc" style="cursor:pointer;transition:all .15s;${sf==='bw'?'outline:2px solid var(--R);':''}border-color:${sf==='bw'?'var(--R)':'var(--bdr)'}" onclick="toggleStatusFilter('bw')" title="點擊篩選借用中琴房">
+      <div class="sl">借用中 ${sf==='bw'?'▼':''}</div><div class="sv r">${bw}</div></div>
      <div class="sc"><div class="sl">維修中</div><div class="sv a">${rp}</div></div>
      <div class="sc"><div class="sl">禁止借用</div><div class="sv" style="color:#666">${dk}</div></div>`;
 }
+function toggleStatusFilter(status){
+  if(window.CStatusFilter===status){window.CStatusFilter='';}else{window.CStatusFilter=status;}
+  renderStats();renderRooms();
+  const lbl=document.getElementById('floor-lbl');
+  if(lbl){
+    if(window.CStatusFilter==='av')lbl.textContent='篩選：可借用琴房';
+    else if(window.CStatusFilter==='bw')lbl.textContent='篩選：借用中琴房';
+    else lbl.textContent=(window.CFL||'')+(window.CFL?' 樓層':'');
+  }
+}
 
 /* ═══ FLOOR TABS ═══ */
+let CFloorAll=false; // true = show all floors
 function renderFT(){
-  document.getElementById('floor-tabs').innerHTML=DB.floors.map(f=>
-    `<button class="fb${f===CFL?' active':''}" onclick="setFL('${f}',this)">${f}</button>`).join('');
+  const allBtn=`<button class="fb${CFloorAll?' active':''}" onclick="setFLAll(this)" style="font-size:13px;font-weight:600">全部</button>`;
+  document.getElementById('floor-tabs').innerHTML=allBtn+DB.floors.map(f=>
+    `<button class="fb${!CFloorAll&&f===CFL?' active':''}" onclick="setFL('${f}',this)">${f}</button>`).join('');
 }
-function setFL(f,btn){CFL=f;document.querySelectorAll('.fb').forEach(b=>b.classList.remove('active'));btn.classList.add('active');document.getElementById('floor-lbl').textContent=f+' 樓層';renderRooms();}
+function setFLAll(btn){
+  CFloorAll=true;window.CStatusFilter='';
+  document.querySelectorAll('.fb').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('floor-lbl').textContent='全部樓層';
+  renderStats();renderRooms();
+}
+function setFL(f,btn){
+  CFL=f;CFloorAll=false;window.CStatusFilter='';
+  document.querySelectorAll('.fb').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('floor-lbl').textContent=f+' 樓層';
+  renderStats();renderRooms();
+}
 
 /* ═══ ROOMS ═══ */
 function renderRooms(){
-  const rooms=DB.rooms.filter(r=>r.floor===CFL).sort((a,b)=>(a.order||0)-(b.order||0));
-  document.getElementById('rooms-grid').innerHTML=rooms.map(r=>{
-    let cc=r.kd?'dk':r.status,badge='',info='';
-    if(r.kd){badge='<div class="rb bdk">🚫 禁止借用</div>';}
-    else if(r.status==='av'){badge='<div class="rb bav">✓ 可借用</div>';}
-    else if(r.status==='bw'){
-      badge='<div class="rb bbw">● 借用中</div>';
-      info=`<div class="ri">${r.borrower.cls}<br>${r.borrower.seatNo||''}號 ${r.borrower.name}<br>自 ${r.borrower.time} 起<br><span style="color:var(--AC);font-size:10px">${r.borrower.reason||''}</span></div>`;
-    }else{badge='<div class="rb brp">⚠ 維修中</div>';info=`<div class="ri">${r.issue||''}</div>`;}
-    return`<div class="rc ${cc}" onclick="openRM('${r.id}')"><div class="rn">${r.name}</div>${badge}${info}</div>`;
-  }).join('');
+  const sf=window.CStatusFilter||'';
+  let rooms;
+  if(sf==='av'){
+    // Show all available rooms across all floors
+    rooms=DB.rooms.filter(r=>r.status==='av'&&!r.kd).sort((a,b)=>{
+      if(a.floor!==b.floor)return DB.floors.indexOf(a.floor)-DB.floors.indexOf(b.floor);
+      return(a.order||0)-(b.order||0);
+    });
+  } else if(sf==='bw'){
+    // Show all borrowed rooms across all floors
+    rooms=DB.rooms.filter(r=>r.status==='bw').sort((a,b)=>{
+      if(a.floor!==b.floor)return DB.floors.indexOf(a.floor)-DB.floors.indexOf(b.floor);
+      return(a.order||0)-(b.order||0);
+    });
+  } else if(window.CFloorAll){
+    // Show all floors
+    rooms=DB.rooms.slice().sort((a,b)=>{
+      if(a.floor!==b.floor)return DB.floors.indexOf(a.floor)-DB.floors.indexOf(b.floor);
+      return(a.order||0)-(b.order||0);
+    });
+  } else {
+    rooms=DB.rooms.filter(r=>r.floor===CFL).sort((a,b)=>(a.order||0)-(b.order||0));
+  }
+  if(!rooms.length){
+    document.getElementById('rooms-grid').innerHTML='<div style="grid-column:1/-1;padding:2rem;text-align:center;color:var(--mut)">無符合條件的琴房</div>';
+    return;
+  }
+  // When showing all floors or status filter, group by floor
+  const grouped=(sf||window.CFloorAll);
+  let html='';
+  if(grouped){
+    const floorGroups={};
+    rooms.forEach(r=>{if(!floorGroups[r.floor])floorGroups[r.floor]=[];floorGroups[r.floor].push(r);});
+    DB.floors.forEach(floor=>{
+      if(!floorGroups[floor]||!floorGroups[floor].length)return;
+      html+=`<div style="grid-column:1/-1;font-size:11px;font-weight:600;color:var(--mut);text-transform:uppercase;letter-spacing:.08em;margin-top:.5rem;padding-top:.25rem;border-top:1px solid var(--bdr)">${floor} 樓層</div>`;
+      floorGroups[floor].forEach(r=>{ html+=buildRoomCard(r); });
+    });
+  } else {
+    rooms.forEach(r=>{ html+=buildRoomCard(r); });
+  }
+  document.getElementById('rooms-grid').innerHTML=html;
+}
+function buildRoomCard(r){
+  let cc=r.kd?'dk':r.status,badge='',info='';
+  if(r.kd){badge='<div class="rb bdk">🚫 禁止借用</div>';}
+  else if(r.status==='av'){badge='<div class="rb bav">✓ 可借用</div>';}
+  else if(r.status==='bw'){
+    badge='<div class="rb bbw">● 借用中</div>';
+    info='<div class="ri">'+r.borrower.cls+'<br>'+(r.borrower.seatNo||'')+'號 '+r.borrower.name+'<br>自 '+r.borrower.time+' 起<br><span style="color:var(--AC);font-size:10px">'+(r.borrower.reason||'')+'</span></div>';
+  }else{badge='<div class="rb brp">⚠ 維修中</div>';info='<div class="ri">'+(r.issue||'')+'</div>';}
+  return '<div class="rc '+cc+'" onclick="openRM(''+r.id+'')"><div class="rn">'+r.name+'</div>'+badge+info+'</div>';
 }
 
 /* ═══ AUTOCOMPLETE helper ═══ */
@@ -831,11 +912,13 @@ function takePhoto(){
   c.getContext('2d').drawImage(v2,0,0);
   cp=c.toDataURL('image/jpeg',.82);
   stopCam();
-  document.getElementById('camwrap').innerHTML=`<img src="${cp}" alt="歸還照片">`;
-  document.getElementById('bsn').style.display='none';
-  document.getElementById('brt').style.display='';
-  document.getElementById('bcr').disabled=false;
-  document.getElementById('cam-status').textContent='✅ 照片已拍攝，可確認歸還';
+  const wrap=document.getElementById('camwrap');
+  if(wrap)wrap.innerHTML='<img src="'+cp+'" alt="歸還照片">';
+  const bsn=document.getElementById('bsn');if(bsn)bsn.style.display='none';
+  const brt=document.getElementById('brt');if(brt)brt.style.display='';
+  const bco=document.getElementById('bco');if(bco)bco.style.display='none';
+  const bcr=document.getElementById('bcr');if(bcr){bcr.disabled=false;bcr.removeAttribute('disabled');}
+  const cst=document.getElementById('cam-status');if(cst)cst.textContent='✅ 照片已拍攝，可確認歸還';
 }
 function retake(){
   cp=null;
@@ -958,16 +1041,25 @@ function renderAllAdm(){renderPplTbl();renderRMgmt();popAHF();renderAdmH();rende
 
 /* ═══ PEOPLE ═══ */
 function renderPplTbl(){
+  // Update class filter dropdown
+  const filterSel=document.getElementById('ppl-cls-filter');
+  if(filterSel){
+    const curFilter=filterSel.value;
+    filterSel.innerHTML='<option value="">全部班級</option>'+DB.clsList.map(c=>`<option value="${c}"${c===curFilter?' selected':''}>${c}</option>`).join('');
+  }
+  const filterCls=filterSel?filterSel.value:'';
+  const showCls=filterCls?[filterCls]:DB.clsList;
+
   const byClass={};
   DB.clsList.forEach(c=>{byClass[c]=[];});
   DB.people.forEach(p=>{if(!byClass[p.cls])byClass[p.cls]=[];byClass[p.cls].push(p);});
-  // sort by seat number within each class
   Object.values(byClass).forEach(arr=>arr.sort((a,b)=>(a.seatNo||'').localeCompare(b.seatNo||'')));
-  let html='';
-  DB.clsList.forEach(cls=>{
+  let html='';let totalCount=0;
+  showCls.forEach(cls=>{
     const ppl=byClass[cls]||[];
+    totalCount+=ppl.length;
     html+=`<tr style="background:var(--bg)"><td colspan="5" style="font-weight:500;padding:6px 12px">
-      ${cls}
+      ${cls} <span style="font-size:11px;color:var(--mut);font-weight:400">（${ppl.length}人）</span>
       <button class="btn btn-o btn-xs" style="margin-left:8px" onclick="openRnCls('${cls}')">✏ 改名</button>
       <button class="btn btn-d btn-xs" style="margin-left:4px" onclick="delCls('${cls}')">刪除班級</button>
     </td></tr>`;
@@ -987,6 +1079,8 @@ function renderPplTbl(){
       </tr>`;
     });
   });
+  const countEl=document.getElementById('ppl-count');
+  if(countEl)countEl.textContent=filterCls?`共 ${totalCount} 人`:`全部 ${DB.people.length} 人`;
   document.getElementById('ppl-tbl').innerHTML=
     `<table><thead><tr><th>座號</th><th>姓名</th><th>移動班級</th><th></th><th></th></tr></thead><tbody>${html||'<tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--mut)">尚無資料</td></tr>'}</tbody></table>`;
 }
@@ -1149,11 +1243,12 @@ function setAvail(id){const r=DB.rooms.find(x=>x.id===id);r.status='av';delete r
 function clearBorrow(id){
   const r=DB.rooms.find(x=>x.id===id);
   if(!r||r.status!=='bw')return;
-  if(!confirm(`確認強制清除「${r.name}」的借用狀態？\n（${r.borrower?.cls||''} ${r.borrower?.seatNo||''}號 ${r.borrower?.name||''}）\n\n此操作無法復原，借用紀錄將標記為異常結束。`))return;
+  const msg='確認強制清除「'+r.name+'」的借用狀態？\n（'+(r.borrower?.cls||'')+' '+(r.borrower?.seatNo||'')+'號 '+(r.borrower?.name||'')+'）\n\n此操作無法復原，借用紀錄將標記為異常結束。';
+  if(!confirm(msg))return;
   const h=DB.history.find(x=>x.rid===id&&!x.returnTime);
   if(h){h.returnTime=ts();h.note='管理員強制清除';}
   r.status='av';delete r.borrower;
-  saveDB();renderRMgmt();renderRooms();renderStats();showT(`${r.name} 借用已清除`,'ti');
+  saveDB();renderRMgmt();renderRooms();renderStats();showT(r.name+' 借用已清除','ti');
 }
 function delRoom(id){const r=DB.rooms.find(x=>x.id===id);if(r.status==='bw'){showT('借用中，無法刪除','tw2');return;}if(!confirm(`確認刪除「${r.name}」？`))return;DB.rooms=DB.rooms.filter(x=>x.id!==id);saveDB();renderRMgmt();renderFT();renderRooms();renderStats();}
 
