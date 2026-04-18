@@ -721,57 +721,60 @@ function openRM(id){
   r.status==='av'?openBM(r):openRetM(r);
 }
 function openBM(r){
-  const clsOpts=DB.clsList.map(c=>`<option value="${c}">${c}</option>`).join('');
-  const reasons=(DB.borrowReasons&&DB.borrowReasons.length)?DB.borrowReasons:['上課開門','自主練習使用','其他'];
-  const rsnHtml=reasons.map(rsn=>{
-    let icon='';
+  var Q='&quot;';
+  var rid=escHtml(r.id);
+  var clsOpts=DB.clsList.map(function(c){return'<option value="'+escHtml(c)+'">'+escHtml(c)+'</option>';}).join('');
+  var reasons=(DB.borrowReasons&&DB.borrowReasons.length)?DB.borrowReasons:['上課開門','自主練習使用','其他'];
+  var rsnHtml=reasons.map(function(rsn){
+    var icon='';
     if(rsn==='上課開門')icon='🏫 ';
     else if(rsn==='自主練習使用')icon='🎹 ';
     else if(rsn==='其他')icon='✏ ';
     else icon='• ';
-    return `<label class="rl"><input type="radio" name="br" value="${rsn}"> ${icon}${rsn}</label>`;
+    return '<label class="rl"><input type="radio" name="br" value="'+escHtml(rsn)+'"> '+icon+escHtml(rsn)+'</label>';
   }).join('');
-  showM(`<div class="mt">🔑 ${r.name} — 借用登記</div>
-    <div class="modal-cols">
-      <div>
-        <div class="fg"><label class="fl">班級</label>
-          <select id="bc" onchange="bcCls(this.value)"><option value="">請選擇班級...</option>${clsOpts}</select></div>
-        <div class="fg"><label class="fl">座號 → 自動帶入姓名</label>
-          <div class="numpad-wrap">
-            <div class="numpad-display">
-              <span class="numpad-seat" id="bn-seat">—</span>
-              <span class="numpad-name hint" id="bn-name">請輸入座號</span>
-            </div>
-            <div class="numpad-grid">
-              <button class="nk" onclick="nkPress('bn','1')">1</button>
-              <button class="nk" onclick="nkPress('bn','2')">2</button>
-              <button class="nk" onclick="nkPress('bn','3')">3</button>
-              <button class="nk" onclick="nkPress('bn','4')">4</button>
-              <button class="nk" onclick="nkPress('bn','5')">5</button>
-              <button class="nk" onclick="nkPress('bn','6')">6</button>
-              <button class="nk" onclick="nkPress('bn','7')">7</button>
-              <button class="nk" onclick="nkPress('bn','8')">8</button>
-              <button class="nk" onclick="nkPress('bn','9')">9</button>
-              <button class="nk zero" onclick="nkPress('bn','0')">0</button>
-              <button class="nk del" onclick="nkDel('bn')">⌫</button>
-            </div>
-            <div class="seat-hint">輸入座號後自動顯示姓名</div>
-          </div>
-          <input type="hidden" id="bn-val">
-        </div>
-      </div>
-      <div>
-        <div class="fg"><label class="fl">借用原因</label>
-          <div class="rg" style="gap:8px">${rsnHtml}</div>
-        </div>
-        <div class="fg" id="br-ob" style="display:none"><label class="fl">其他原因說明</label>
-          <input type="text" id="br-ot" placeholder="請說明借用原因..."></div>
-      </div>
-    </div>
-    <div class="ma"><button class="btn btn-o" onclick="closeM()">取消</button>
-    <button class="btn btn-p" onclick="confBorrow('${r.id}')">開始借用</button></div>`,true,'horiz');
-  document.querySelectorAll('input[name=br]').forEach(el=>el.onchange=()=>{
-    document.getElementById('br-ob').style.display=el.value==='其他'?'':'none';
+  var html='<div class="mt">🔑 '+escHtml(r.name)+' — 借用登記</div>'+
+    '<div class="modal-cols">'+
+      '<div>'+
+        '<div class="fg"><label class="fl">班級</label>'+
+          '<select id="bc" onchange="bcCls(this.value)"><option value="">請選擇班級...</option>'+clsOpts+'</select></div>'+
+        '<div class="fg"><label class="fl">座號 → 自動帶入姓名</label>'+
+          '<div class="numpad-wrap">'+
+            '<div class="numpad-display">'+
+              '<span class="numpad-seat" id="bn-seat">—</span>'+
+              '<span class="numpad-name hint" id="bn-name">請輸入座號</span>'+
+            '</div>'+
+            '<div class="numpad-grid">'+
+              '<button class="nk" onclick="nkPress('+Q+'bn'+Q+','+Q+'1'+Q+')">1</button>'+
+              '<button class="nk" onclick="nkPress('+Q+'bn'+Q+','+Q+'2'+Q+')">2</button>'+
+              '<button class="nk" onclick="nkPress('+Q+'bn'+Q+','+Q+'3'+Q+')">3</button>'+
+              '<button class="nk" onclick="nkPress('+Q+'bn'+Q+','+Q+'4'+Q+')">4</button>'+
+              '<button class="nk" onclick="nkPress('+Q+'bn'+Q+','+Q+'5'+Q+')">5</button>'+
+              '<button class="nk" onclick="nkPress('+Q+'bn'+Q+','+Q+'6'+Q+')">6</button>'+
+              '<button class="nk" onclick="nkPress('+Q+'bn'+Q+','+Q+'7'+Q+')">7</button>'+
+              '<button class="nk" onclick="nkPress('+Q+'bn'+Q+','+Q+'8'+Q+')">8</button>'+
+              '<button class="nk" onclick="nkPress('+Q+'bn'+Q+','+Q+'9'+Q+')">9</button>'+
+              '<button class="nk zero" onclick="nkPress('+Q+'bn'+Q+','+Q+'0'+Q+')">0</button>'+
+              '<button class="nk del" onclick="nkDel('+Q+'bn'+Q+')">⌫</button>'+
+            '</div>'+
+            '<div class="seat-hint">輸入座號後自動顯示姓名</div>'+
+          '</div>'+
+          '<input type="hidden" id="bn-val">'+
+        '</div>'+
+      '</div>'+
+      '<div>'+
+        '<div class="fg"><label class="fl">借用原因</label>'+
+          '<div class="rg" style="gap:8px">'+rsnHtml+'</div>'+
+        '</div>'+
+        '<div class="fg" id="br-ob" style="display:none"><label class="fl">其他原因說明</label>'+
+          '<input type="text" id="br-ot" placeholder="請說明借用原因..."></div>'+
+      '</div>'+
+    '</div>'+
+    '<div class="ma"><button class="btn btn-o" onclick="closeM()">取消</button>'+
+    '<button class="btn btn-p" onclick="confBorrow('+Q+rid+Q+')">開始借用</button></div>';
+  showM(html,true,'horiz');
+  document.querySelectorAll('input[name=br]').forEach(function(el){
+    el.onchange=function(){document.getElementById('br-ob').style.display=el.value==='其他'?'':'none';};
   });
 }
 function bcCls(cls){
@@ -850,54 +853,55 @@ function confBorrow(id){
 /* ═══ RETURN MODAL ═══ */
 function openRetM(r){
   cp=null;
-  const clsOpts=DB.clsList.map(c=>`<option value="${c}">${c}</option>`).join('');
-  showM(`<div class="mt">↩ ${r.name} — 歸還登記</div>
-    <div class="alert ai" style="margin-bottom:1rem">借用者：<strong>${r.borrower.cls} ${r.borrower.seatNo||''}號 ${r.borrower.name}</strong>（${r.borrower.time}｜${r.borrower.reason||''}）</div>
-    <div class="modal-cols">
-      <!-- 左欄：班級 + 座號鍵盤 -->
-      <div>
-        <div class="fg"><label class="fl">歸還者班級</label>
-          <select id="rc2" onchange="rcCls(this.value)"><option value="">請選擇班級...</option>${clsOpts}</select></div>
-        <div class="fg"><label class="fl">歸還者座號 → 自動帶入姓名</label>
-          <div class="numpad-wrap">
-            <div class="numpad-display">
-              <span class="numpad-seat" id="rn2-seat">—</span>
-              <span class="numpad-name hint" id="rn2-name">請輸入座號</span>
-            </div>
-            <div class="numpad-grid">
-              <button class="nk" onclick="nkPress('rn2','1')">1</button>
-              <button class="nk" onclick="nkPress('rn2','2')">2</button>
-              <button class="nk" onclick="nkPress('rn2','3')">3</button>
-              <button class="nk" onclick="nkPress('rn2','4')">4</button>
-              <button class="nk" onclick="nkPress('rn2','5')">5</button>
-              <button class="nk" onclick="nkPress('rn2','6')">6</button>
-              <button class="nk" onclick="nkPress('rn2','7')">7</button>
-              <button class="nk" onclick="nkPress('rn2','8')">8</button>
-              <button class="nk" onclick="nkPress('rn2','9')">9</button>
-              <button class="nk zero" onclick="nkPress('rn2','0')">0</button>
-              <button class="nk del" onclick="nkDel('rn2')">⌫</button>
-            </div>
-            <div class="seat-hint">輸入座號後自動顯示姓名</div>
-          </div>
-          <input type="hidden" id="rn2-val">
-        </div>
-      </div>
-      <!-- 右欄：攝影機 -->
-      <div>
-        <label class="fl">拍攝歸還照片（必填）<span style="color:var(--R)">★</span></label>
-        <div class="cam-wrap" id="camwrap" style="margin-top:.3rem">
-          <div class="cam-ph"><div style="font-size:32px">📷</div><div style="font-size:12px;margin-top:6px">請點擊「開啟攝影機」</div></div>
-        </div>
-        <div class="cam-status" id="cam-status" style="margin-top:.4rem">尚未拍攝</div>
-        <div class="cam-ctrl" style="margin-top:.5rem">
-          <button class="btn btn-o btn-sm" id="bco" onclick="startCam()">📷 開啟攝影機</button>
-          <button class="shutter" id="bsn" onclick="takePhoto()" style="display:none" title="拍攝">📸</button>
-          <button class="btn btn-o btn-sm" id="brt" onclick="retake()" style="display:none">🔄 重拍</button>
-        </div>
-      </div>
-    </div>
-    <div class="ma"><button class="btn btn-o" onclick="closeM()">取消</button>
-    <button class="btn btn-s" id="bcr" onclick="confReturn('${r.id}')" disabled>✓ 確認歸還</button></div>`,true,'horiz');
+  var Q='&quot;';
+  var rid=escHtml(r.id);
+  var clsOpts=DB.clsList.map(function(c){return'<option value="'+escHtml(c)+'">'+escHtml(c)+'</option>';}).join('');
+  var html='<div class="mt">↩ '+escHtml(r.name)+' — 歸還登記</div>'+
+    '<div class="alert ai" style="margin-bottom:1rem">借用者：<strong>'+escHtml(r.borrower.cls)+' '+escHtml(r.borrower.seatNo||'')+'號 '+escHtml(r.borrower.name)+'</strong>（'+escHtml(r.borrower.time)+'｜'+escHtml(r.borrower.reason||'')+'）</div>'+
+    '<div class="modal-cols">'+
+      '<div>'+
+        '<div class="fg"><label class="fl">歸還者班級</label>'+
+          '<select id="rc2" onchange="rcCls(this.value)"><option value="">請選擇班級...</option>'+clsOpts+'</select></div>'+
+        '<div class="fg"><label class="fl">歸還者座號 → 自動帶入姓名</label>'+
+          '<div class="numpad-wrap">'+
+            '<div class="numpad-display">'+
+              '<span class="numpad-seat" id="rn2-seat">—</span>'+
+              '<span class="numpad-name hint" id="rn2-name">請輸入座號</span>'+
+            '</div>'+
+            '<div class="numpad-grid">'+
+              '<button class="nk" onclick="nkPress('+Q+'rn2'+Q+','+Q+'1'+Q+')">1</button>'+
+              '<button class="nk" onclick="nkPress('+Q+'rn2'+Q+','+Q+'2'+Q+')">2</button>'+
+              '<button class="nk" onclick="nkPress('+Q+'rn2'+Q+','+Q+'3'+Q+')">3</button>'+
+              '<button class="nk" onclick="nkPress('+Q+'rn2'+Q+','+Q+'4'+Q+')">4</button>'+
+              '<button class="nk" onclick="nkPress('+Q+'rn2'+Q+','+Q+'5'+Q+')">5</button>'+
+              '<button class="nk" onclick="nkPress('+Q+'rn2'+Q+','+Q+'6'+Q+')">6</button>'+
+              '<button class="nk" onclick="nkPress('+Q+'rn2'+Q+','+Q+'7'+Q+')">7</button>'+
+              '<button class="nk" onclick="nkPress('+Q+'rn2'+Q+','+Q+'8'+Q+')">8</button>'+
+              '<button class="nk" onclick="nkPress('+Q+'rn2'+Q+','+Q+'9'+Q+')">9</button>'+
+              '<button class="nk zero" onclick="nkPress('+Q+'rn2'+Q+','+Q+'0'+Q+')">0</button>'+
+              '<button class="nk del" onclick="nkDel('+Q+'rn2'+Q+')">⌫</button>'+
+            '</div>'+
+            '<div class="seat-hint">輸入座號後自動顯示姓名</div>'+
+          '</div>'+
+          '<input type="hidden" id="rn2-val">'+
+        '</div>'+
+      '</div>'+
+      '<div>'+
+        '<label class="fl">拍攝歸還照片（必填）<span style="color:var(--R)">★</span></label>'+
+        '<div class="cam-wrap" id="camwrap" style="margin-top:.3rem">'+
+          '<div class="cam-ph"><div style="font-size:32px">📷</div><div style="font-size:12px;margin-top:6px">請點擊「開啟攝影機」</div></div>'+
+        '</div>'+
+        '<div class="cam-status" id="cam-status" style="margin-top:.4rem">尚未拍攝</div>'+
+        '<div class="cam-ctrl" style="margin-top:.5rem">'+
+          '<button class="btn btn-o btn-sm" id="bco" onclick="startCam()">📷 開啟攝影機</button>'+
+          '<button class="shutter" id="bsn" onclick="takePhoto()" style="display:none" title="拍攝">📸</button>'+
+          '<button class="btn btn-o btn-sm" id="brt" onclick="retake()" style="display:none">🔄 重拍</button>'+
+        '</div>'+
+      '</div>'+
+    '</div>'+
+    '<div class="ma"><button class="btn btn-o" onclick="closeM()">取消</button>'+
+    '<button class="btn btn-s" id="bcr" onclick="confReturn('+Q+rid+Q+')" disabled>✓ 確認歸還</button></div>';
+  showM(html,true,'horiz');
   nkReset('rn2');
 }
 function rcCls(cls){nkReset('rn2');}
