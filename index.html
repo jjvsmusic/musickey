@@ -264,6 +264,7 @@ tr.dg-src{opacity:.35}
     <div class="si" id="nav-repairs" onclick="aN('repairs')">🔧 維修清單</div>
     <div id="adm-only">
       <div class="si" id="nav-rtypes" onclick="aN('rtypes')">⚙ 報修類型</div>
+      <div class="si" id="nav-breasons" onclick="aN('breasons')">🔑 借用原因</div>
       <div class="si" id="nav-notice" onclick="aN('notice')">📢 公告說明</div>
       <div class="si" id="nav-accts" onclick="aN('accts')">🔐 帳號管理</div>
     </div>
@@ -326,6 +327,11 @@ tr.dg-src{opacity:.35}
     <div id="adm-rtypes" class="ap">
       <div class="tb"><h2>⚙ 報修問題類型</h2><button class="btn btn-p btn-sm" onclick="openAddRType()">+ 新增</button></div>
       <div class="tc"><div class="tw" id="rt-tbl"></div></div>
+    </div>
+    <div id="adm-breasons" class="ap">
+      <div class="tb"><h2>🔑 借用原因選項</h2><button class="btn btn-p btn-sm" onclick="openAddBRsn()">+ 新增</button></div>
+      <div class="alert ai" style="font-size:12px;margin-bottom:1rem">此處管理借用登記表單中的借用原因選項。「其他」選項為內建選項，使用者可自行輸入說明。</div>
+      <div class="tc"><div class="tw" id="brsn-tbl"></div></div>
     </div>
     <div id="adm-notice" class="ap">
       <div class="tb"><h2>📢 公告說明欄</h2></div>
@@ -390,7 +396,7 @@ function initFirebase(){
       const raw = snapshot.val();
       if(raw){
         const d = raw;
-        cleanOld(d); migratePeople(d);
+        cleanOld(d); migratePeople(d); migrateBorrowReasons(d);
         DB = d;
         // 同步本機備份
         try{ localStorage.setItem(SK, JSON.stringify(DB)); }catch(e){}
@@ -415,14 +421,14 @@ function initFirebase(){
 }
 
 function fallbackLoad(){
-  try{const d=JSON.parse(localStorage.getItem(SK)||'null');if(d){cleanOld(d);migratePeople(d);DB=d;}}catch(e){}
+  try{const d=JSON.parse(localStorage.getItem(SK)||'null');if(d){cleanOld(d);migratePeople(d);migrateBorrowReasons(d);DB=d;}}catch(e){}
   fbReady = true;
   showNotice(); renderStats(); renderFT(); renderRooms();
 }
 
 function loadDB(){
   // 優先從本機讀取作為初始值，Firebase 監聽器會覆蓋更新
-  try{const d=JSON.parse(localStorage.getItem(SK)||'null');if(d){cleanOld(d);migratePeople(d);return d;}}catch(e){}
+  try{const d=JSON.parse(localStorage.getItem(SK)||'null');if(d){cleanOld(d);migratePeople(d);migrateBorrowReasons(d);return d;}}catch(e){}
   return defDB();
 }
 
@@ -444,6 +450,11 @@ function cleanOld(d){
   const cut=Date.now()-15*864e5;
   if(d.history)d.history=d.history.filter(h=>{const t=new Date(h.returnTime||h.borrowTime).getTime();return isNaN(t)||t>=cut;});
   if(d.repairs)d.repairs=d.repairs.filter(r=>{if(r.status==='已完成'){const t=new Date(r.time).getTime();return isNaN(t)||t>=cut;}return true;});
+}
+function migrateBorrowReasons(d){
+  if(!d.borrowReasons||!Array.isArray(d.borrowReasons)||!d.borrowReasons.length){
+    d.borrowReasons=['上課開門','自主練習使用','其他'];
+  }
 }
 function migratePeople(d){
   // migrate old classes object to people array if needed
@@ -499,6 +510,7 @@ function defDB(){return{
     {id:2,room:'102',type:'琴鍵故障',detail:'高音區第三鍵卡住',reporter:'劉建宏',cls:'302班',time:ts(-1),status:'處理中',note:'已聯絡廠商'},
   ],
   repairTypes:['鑰匙遺失','門鎖損壞','琴鍵故障','環境問題（冷氣、燈光等）','其他'],
+  borrowReasons:['上課開門','自主練習使用','其他'],
   accounts:[{u:'王國霖',p:'000',role:'admin',name:'王國霖'}],
   notice:'',
   ids:{h:100,rep:10,ppl:30},
@@ -710,9 +722,17 @@ function openRM(id){
 }
 function openBM(r){
   const clsOpts=DB.clsList.map(c=>`<option value="${c}">${c}</option>`).join('');
+  const reasons=(DB.borrowReasons&&DB.borrowReasons.length)?DB.borrowReasons:['上課開門','自主練習使用','其他'];
+  const rsnHtml=reasons.map(rsn=>{
+    let icon='';
+    if(rsn==='上課開門')icon='🏫 ';
+    else if(rsn==='自主練習使用')icon='🎹 ';
+    else if(rsn==='其他')icon='✏ ';
+    else icon='• ';
+    return `<label class="rl"><input type="radio" name="br" value="${rsn}"> ${icon}${rsn}</label>`;
+  }).join('');
   showM(`<div class="mt">🔑 ${r.name} — 借用登記</div>
     <div class="modal-cols">
-      <!-- 左欄：班級 + 座號鍵盤 -->
       <div>
         <div class="fg"><label class="fl">班級</label>
           <select id="bc" onchange="bcCls(this.value)"><option value="">請選擇班級...</option>${clsOpts}</select></div>
@@ -740,14 +760,9 @@ function openBM(r){
           <input type="hidden" id="bn-val">
         </div>
       </div>
-      <!-- 右欄：借用原因 -->
       <div>
         <div class="fg"><label class="fl">借用原因</label>
-          <div class="rg" style="gap:8px">
-            <label class="rl"><input type="radio" name="br" value="上課開門"> 🏫 上課開門</label>
-            <label class="rl"><input type="radio" name="br" value="自主練習使用"> 🎹 自主練習使用</label>
-            <label class="rl"><input type="radio" name="br" value="其他"> ✏ 其他</label>
-          </div>
+          <div class="rg" style="gap:8px">${rsnHtml}</div>
         </div>
         <div class="fg" id="br-ob" style="display:none"><label class="fl">其他原因說明</label>
           <input type="text" id="br-ot" placeholder="請說明借用原因..."></div>
@@ -1031,10 +1046,11 @@ function aN(p){
   if(p==='hist'){popAHF();renderAdmH();}
   if(p==='repairs')renderRepTbl();
   if(p==='rtypes')renderRTypes();
+  if(p==='breasons')renderBRsn();
   if(p==='notice'){const t=document.getElementById('notice-text');if(t)t.value=DB.notice||'';}
   if(p==='accts')renderAccts();
 }
-function renderAllAdm(){renderPplTbl();renderRMgmt();popAHF();renderAdmH();renderRepTbl();renderRTypes();renderAccts();const t=document.getElementById('notice-text');if(t)t.value=DB.notice||'';}
+function renderAllAdm(){renderPplTbl();renderRMgmt();popAHF();renderAdmH();renderRepTbl();renderRTypes();renderBRsn();renderAccts();const t=document.getElementById('notice-text');if(t)t.value=DB.notice||'';}
 
 /* ═══ PEOPLE ═══ */
 function renderPplTbl(){
@@ -1182,37 +1198,41 @@ function importCSV(){
 /* ═══ ROOMS MGMT ═══ */
 let roomDragId=null;
 function renderRMgmt(){
-  let html='';
-  DB.floors.forEach(floor=>{
-    const rooms=DB.rooms.filter(r=>r.floor===floor).sort((a,b)=>(a.order||0)-(b.order||0));
-    html+=`<div style="margin-bottom:1.5rem">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:.75rem">
-        <span style="font-weight:500">${floor} 樓層</span>
-        <button class="btn btn-o btn-xs" onclick="openRnFloor('${floor}')">✏ 改名</button>
-        <button class="btn btn-d btn-xs" onclick="delFloor('${floor}')">刪除</button>
-      </div>
-      <div class="tc"><table><thead><tr><th style="width:36px"></th><th>名稱</th><th>狀態</th><th>禁止借用</th><th>操作</th></tr></thead><tbody>`;
-    rooms.forEach(r=>{
-      const sc=r.status==='av'?'bav':r.status==='bw'?'bbw':'brp';
-      const st=r.status==='av'?'可借用':r.status==='bw'?'借用中':'維修中';
-      html+=`<tr draggable="true" data-rid="${r.id}" data-fl="${floor}"
-        ondragstart="rdragS(event)" ondragover="rdragO(event)" ondrop="rdragD(event)" ondragend="rdragE(event)">
-        <td><span class="dh">⠿</span></td>
-        <td style="font-family:monospace;font-weight:500">${r.name}</td>
-        <td><span class="rb ${sc}">${st}</span></td>
-        <td><input type="checkbox" ${r.kd?'checked':''} onchange="toggleKD('${r.id}',this.checked)" style="width:16px;height:16px;accent-color:var(--R)"></td>
-        <td style="display:flex;gap:4px;flex-wrap:wrap">
-          <button class="btn btn-o btn-xs" onclick="openRnRoom('${r.id}')">✏</button>
-          ${r.status==='bw'?`<button class="btn btn-xs" style="color:var(--R);border:1px solid var(--Rb);background:transparent" onclick="clearBorrow('${r.id}')">🗑 清除借用</button>`:''}
-          ${r.status!=='rp'&&r.status!=='bw'?`<button class="btn btn-w btn-xs" onclick="setRpair('${r.id}')">維修</button>`:''}
-          ${r.status==='rp'?`<button class="btn btn-xs" style="color:var(--G);border:1px solid var(--Gb);background:transparent" onclick="setAvail('${r.id}')">恢復</button>`:''}
-          <button class="btn btn-d btn-xs" onclick="delRoom('${r.id}')">刪除</button>
-        </td></tr>`;
+  var html='';
+  var Q='&quot;';
+  DB.floors.forEach(function(floor){
+    var rooms=DB.rooms.filter(function(r){return r.floor===floor;}).sort(function(a,b){return(a.order||0)-(b.order||0);});
+    var fe=escHtml(floor);
+    html+='<div style="margin-bottom:1.5rem">'+
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:.75rem">'+
+        '<span style="font-weight:500">'+fe+' 樓層</span>'+
+        '<button class="btn btn-o btn-xs" onclick="openRnFloor('+Q+fe+Q+')">✏ 改名</button>'+
+        '<button class="btn btn-d btn-xs" onclick="delFloor('+Q+fe+Q+')">刪除</button>'+
+      '</div>'+
+      '<div class="tc"><table><thead><tr><th style="width:36px"></th><th>名稱</th><th>狀態</th><th>禁止借用</th><th>操作</th></tr></thead><tbody>';
+    rooms.forEach(function(r){
+      var sc=r.status==='av'?'bav':r.status==='bw'?'bbw':'brp';
+      var st=r.status==='av'?'可借用':r.status==='bw'?'借用中':'維修中';
+      var rid=escHtml(r.id);
+      html+='<tr draggable="true" data-rid="'+rid+'" data-fl="'+fe+'"'+
+        ' ondragstart="rdragS(event)" ondragover="rdragO(event)" ondrop="rdragD(event)" ondragend="rdragE(event)">'+
+        '<td><span class="dh">⠿</span></td>'+
+        '<td style="font-family:monospace;font-weight:500">'+escHtml(r.name)+'</td>'+
+        '<td><span class="rb '+sc+'">'+st+'</span></td>'+
+        '<td><input type="checkbox" '+(r.kd?'checked':'')+' onchange="toggleKD('+Q+rid+Q+',this.checked)" style="width:16px;height:16px;accent-color:var(--R)"></td>'+
+        '<td style="display:flex;gap:4px;flex-wrap:wrap">'+
+          '<button class="btn btn-o btn-xs" onclick="openRnRoom('+Q+rid+Q+')">✏</button>';
+      if(r.status==='bw')html+='<button class="btn btn-xs" style="color:var(--R);border:1px solid var(--Rb);background:transparent" onclick="clearBorrow('+Q+rid+Q+')">🗑 清除借用</button>';
+      if(r.status!=='rp'&&r.status!=='bw')html+='<button class="btn btn-w btn-xs" onclick="setRpair('+Q+rid+Q+')">維修</button>';
+      if(r.status==='rp')html+='<button class="btn btn-xs" style="color:var(--G);border:1px solid var(--Gb);background:transparent" onclick="setAvail('+Q+rid+Q+')">恢復</button>';
+      html+='<button class="btn btn-d btn-xs" onclick="delRoom('+Q+rid+Q+')">刪除</button>'+
+        '</td></tr>';
     });
-    html+=`</tbody></table></div></div>`;
+    html+='</tbody></table></div></div>';
   });
   document.getElementById('rmgmt').innerHTML=html;
 }
+function escHtml(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 function rdragS(e){roomDragId=e.currentTarget.dataset.rid;e.currentTarget.classList.add('dg-src');}
 function rdragO(e){e.preventDefault();document.querySelectorAll('tr.dg-over').forEach(r=>r.classList.remove('dg-over'));e.currentTarget.classList.add('dg-over');}
 function rdragE(e){e.currentTarget.classList.remove('dg-src');document.querySelectorAll('tr.dg-over').forEach(r=>r.classList.remove('dg-over'));}
@@ -1305,9 +1325,19 @@ function renderRepTbl(){
         <input type="text" value="${r.note||''}" placeholder="處理說明..." style="font-size:12px;padding:4px 8px"
           onchange="updateRepNote(${r.id},this.value)" style="width:120px">
       </td>
-      <td><button class="btn btn-o btn-xs" onclick="cycleRep(${r.id})">→ ${next}</button></td></tr>`;
+      <td><button class="btn btn-o btn-xs" onclick="cycleRep(${r.id})">→ ${next}</button></td>
+      <td><button class="btn btn-d btn-xs" onclick="delRep(${r.id})">刪除</button></td></tr>`;
   }).join('');
-  document.getElementById('rep-tbl').innerHTML=`<table><thead><tr><th>琴房</th><th>類型</th><th>說明</th><th>回報者</th><th>時間</th><th>狀態</th><th>處理說明</th><th>操作</th></tr></thead><tbody>${rows}</tbody></table>`;
+  document.getElementById('rep-tbl').innerHTML=`<table><thead><tr><th>琴房</th><th>類型</th><th>說明</th><th>回報者</th><th>時間</th><th>狀態</th><th>處理說明</th><th>切換</th><th>操作</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+function delRep(id){
+  const r=DB.repairs.find(x=>x.id===id);if(!r)return;
+  if(!confirm('確認刪除此筆維修紀錄？\n'+r.room+' - '+r.type+'\n此操作無法復原。'))return;
+  // If room is still marked as 'rp' due to this repair, revert to available
+  const rm=DB.rooms.find(x=>x.name===r.room||x.id===r.room);
+  if(rm&&rm.status==='rp'&&rm.issue===r.type){rm.status='av';delete rm.issue;}
+  DB.repairs=DB.repairs.filter(x=>x.id!==id);
+  saveDB();renderRepTbl();renderRooms();renderStats();showT('維修紀錄已刪除','ti');
 }
 function updateRepNote(id,note){const r=DB.repairs.find(x=>x.id===id);if(r){r.note=note;saveDB();}}
 function cycleRep(id){
@@ -1329,6 +1359,48 @@ function addRType(){const n=document.getElementById('nrt')?.value?.trim();if(!n|
 function openEdRType(i){showM(`<div class="mt">✏ 修改報修類型</div><div class="fg"><label class="fl">名稱</label><input type="text" id="ert" value="${DB.repairTypes[i]}"></div><div class="ma"><button class="btn btn-o" onclick="closeM()">取消</button><button class="btn btn-p" onclick="edRType(${i})">確認</button></div>`);}
 function edRType(i){const n=document.getElementById('ert')?.value?.trim();if(!n){showT('請輸入','tw2');return;}DB.repairTypes[i]=n;saveDB();closeM();renderRTypes();}
 function delRType(i){if(!confirm(`確認刪除「${DB.repairTypes[i]}」？`))return;DB.repairTypes.splice(i,1);saveDB();renderRTypes();}
+
+/* ═══ BORROW REASONS ═══ */
+function renderBRsn(){
+  var tbl=document.getElementById('brsn-tbl');if(!tbl)return;
+  if(!DB.borrowReasons||!DB.borrowReasons.length)DB.borrowReasons=['上課開門','自主練習使用','其他'];
+  var Q='&quot;';
+  var rows=DB.borrowReasons.map(function(t,i){
+    var te=escHtml(t);
+    var isOther=(t==='其他');
+    return '<tr><td>'+te+(isOther?' <span style="font-size:11px;color:var(--mut)">（內建）</span>':'')+'</td>'+
+      '<td>'+(isOther?'':'<button class="btn btn-o btn-xs" onclick="openEdBRsn('+i+')">✏</button>')+'</td>'+
+      '<td>'+(isOther?'':'<button class="btn btn-d btn-xs" onclick="delBRsn('+i+')">刪除</button>')+'</td></tr>';
+  }).join('');
+  tbl.innerHTML='<table><thead><tr><th>原因名稱</th><th></th><th></th></tr></thead><tbody>'+rows+'</tbody></table>';
+}
+function openAddBRsn(){
+  showM('<div class="mt">+ 新增借用原因</div><div class="fg"><label class="fl">名稱</label><input type="text" id="nbrsn" placeholder="例：社團活動"></div><div class="ma"><button class="btn btn-o" onclick="closeM()">取消</button><button class="btn btn-p" onclick="addBRsn()">確認</button></div>');
+}
+function addBRsn(){
+  var n=document.getElementById('nbrsn')?.value?.trim();
+  if(!n){showT('請輸入名稱','tw2');return;}
+  if(DB.borrowReasons.indexOf(n)>=0){showT('已存在','tw2');return;}
+  // Keep 其他 at the end
+  var otherIdx=DB.borrowReasons.indexOf('其他');
+  if(otherIdx>=0)DB.borrowReasons.splice(otherIdx,0,n);
+  else DB.borrowReasons.push(n);
+  saveDB();closeM();renderBRsn();showT('已新增','ts');
+}
+function openEdBRsn(i){
+  showM('<div class="mt">✏ 修改借用原因</div><div class="fg"><label class="fl">名稱</label><input type="text" id="ebrsn" value="'+escHtml(DB.borrowReasons[i])+'"></div><div class="ma"><button class="btn btn-o" onclick="closeM()">取消</button><button class="btn btn-p" onclick="edBRsn('+i+')">確認</button></div>');
+}
+function edBRsn(i){
+  var n=document.getElementById('ebrsn')?.value?.trim();
+  if(!n){showT('請輸入名稱','tw2');return;}
+  if(DB.borrowReasons[i]==='其他'){showT('內建選項無法修改','tw2');return;}
+  DB.borrowReasons[i]=n;saveDB();closeM();renderBRsn();showT('已更新','ts');
+}
+function delBRsn(i){
+  if(DB.borrowReasons[i]==='其他'){showT('內建選項無法刪除','tw2');return;}
+  if(!confirm('確認刪除「'+DB.borrowReasons[i]+'」？'))return;
+  DB.borrowReasons.splice(i,1);saveDB();renderBRsn();showT('已刪除','ti');
+}
 
 /* ═══ NOTICE ═══ */
 function saveNotice(){DB.notice=document.getElementById('notice-text')?.value||'';saveDB();showNotice();showT('公告已儲存','ts');}
