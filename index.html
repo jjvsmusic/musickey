@@ -375,7 +375,7 @@ let saveTimer = null;
 
 function initFirebase(){
   try {
-    fbApp = firebase.initializeApp(FB_CONFIG);
+    fbApp = firebase.initializeApp(firebaseConfig);
     fbDB  = firebase.database();
     fbRef = fbDB.ref('piano_system');
     // 即時監聽雲端資料變更（其他裝置操作時自動同步）
