@@ -1,0 +1,1288 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>莊敬音樂科琴房鑰匙登記系統</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+:root{
+  --bg:#F5F3EE;--sur:#FFF;--bdr:#E0DBD2;--txt:#1A1714;--mut:#7A7268;
+  --G:#2D6A4F;--Gl:#D8F3DC;--Gb:#95D5B2;
+  --R:#A33232;--Rl:#FDECEA;--Rb:#F4A0A0;
+  --A:#7A5C00;--Al:#FFF8DC;--Ab:#E6C84A;
+  --B:#1A4A7A;--Bl:#EAF2FB;--Bb:#90BEE8;
+  --P:#4A3080;--Pl:#F0EAFB;--Pb:#B8A0E8;
+  --AC:#2D4A6A;
+  --r:8px;--rl:12px;
+  --sh:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+  --shm:0 4px 16px rgba(0,0,0,.12),0 2px 4px rgba(0,0,0,.06)
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--txt);font-size:14px;line-height:1.6;display:flex;flex-direction:column}
+
+/* ── TOPBAR ── */
+.topbar{background:var(--AC);display:flex;align-items:center;height:52px;padding:0 1rem;gap:6px;flex-shrink:0;box-shadow:var(--shm);z-index:100}
+.brand{font-size:15px;font-weight:500;color:#fff;white-space:nowrap;margin-right:12px}
+.brand small{font-size:11px;opacity:.65}
+.tab-btn{padding:6px 14px;border-radius:var(--r);border:none;background:rgba(255,255,255,.1);color:rgba(255,255,255,.8);font-family:'Noto Sans TC',sans-serif;font-size:13px;cursor:pointer;transition:all .15s;white-space:nowrap}
+.tab-btn:hover{background:rgba(255,255,255,.2);color:#fff}
+.tab-btn.active{background:#fff;color:var(--AC);font-weight:500}
+.sp{flex:1}
+.nbtn{padding:5px 12px;border-radius:var(--r);border:1px solid rgba(255,255,255,.3);background:transparent;color:rgba(255,255,255,.85);font-family:'Noto Sans TC',sans-serif;font-size:12px;cursor:pointer;transition:all .15s}
+.nbtn:hover{background:rgba(255,255,255,.15)}
+
+/* ── PAGES ── */
+.pages{flex:1;overflow:hidden;position:relative}
+.page{display:none;position:absolute;inset:0;overflow-y:auto;overflow-x:hidden}
+.page.active{display:block}
+
+/* ── BORROW PAGE LAYOUT ── */
+.borrow-layout{display:flex;flex-direction:column;height:100%;padding:1rem}
+.notice-bar{background:var(--Bl);border:1px solid var(--Bb);border-radius:var(--r);padding:.75rem 1rem;margin-bottom:1rem;font-size:13px;color:var(--B);display:none}
+.notice-bar.show{display:block}
+.stats-row{display:flex;gap:8px;margin-bottom:1rem;flex-shrink:0}
+.sc{flex:1;background:var(--sur);border:1px solid var(--bdr);border-radius:var(--rl);padding:.75rem 1rem;box-shadow:var(--sh)}
+.sl{font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;font-weight:500;margin-bottom:2px}
+.sv{font-size:20px;font-weight:700;font-family:'IBM Plex Mono',monospace}
+.sv.g{color:var(--G)}.sv.r{color:var(--R)}.sv.a{color:var(--A)}
+.floor-tabs{display:flex;gap:8px;margin-bottom:1rem;flex-shrink:0}
+.fb{flex:1;padding:10px 8px;font-size:18px;font-weight:700;font-family:'IBM Plex Mono',monospace;border-radius:var(--rl);border:2px solid var(--bdr);background:var(--sur);cursor:pointer;transition:all .15s;color:var(--mut)}
+.fb:hover{border-color:var(--AC);color:var(--AC)}
+.fb.active{background:var(--AC);color:#fff;border-color:var(--AC)}
+.rooms-wrap{flex:1;overflow-y:auto;min-height:0}
+.rooms-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:10px}
+.rc{background:var(--sur);border-radius:var(--rl);border:1.5px solid var(--bdr);padding:.875rem .875rem .75rem;cursor:pointer;transition:all .15s;position:relative;overflow:hidden}
+.rc::before{content:'';position:absolute;top:0;left:0;width:4px;height:100%}
+.rc.av::before{background:var(--G)}.rc.bw::before{background:var(--R)}.rc.rp::before{background:var(--A)}.rc.dk::before{background:#888}
+.rc:hover:not(.rp):not(.dk){box-shadow:var(--shm);transform:translateY(-1px)}
+.rc.rp,.rc.dk{cursor:not-allowed;opacity:.7}
+.rn{font-size:24px;font-weight:700;font-family:'IBM Plex Mono',monospace;line-height:1;margin-bottom:6px}
+.rb{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:500;margin-bottom:4px;border:1px solid}
+.bav{background:var(--Gl);color:var(--G);border-color:var(--Gb)}
+.bbw{background:var(--Rl);color:var(--R);border-color:var(--Rb)}
+.brp{background:var(--Al);color:var(--A);border-color:var(--Ab)}
+.bdk{background:#f0f0f0;color:#666;border-color:#ccc}
+.ri{font-size:11px;color:var(--mut);line-height:1.4;margin-top:2px}
+
+/* ── HISTORY PAGE ── */
+.hist-page{padding:1rem;height:100%;display:flex;flex-direction:column}
+.hist-filters{display:flex;gap:8px;margin-bottom:1rem;flex-shrink:0;flex-wrap:wrap;align-items:center}
+.hist-table-wrap{flex:1;overflow-y:auto;min-height:0}
+
+/* ── MODAL ── */
+.mo{position:fixed;inset:0;background:rgba(20,16,12,.5);z-index:500;display:flex;align-items:center;justify-content:center;padding:1rem;backdrop-filter:blur(3px)}
+.md{background:var(--sur);border-radius:var(--rl);border:1px solid var(--bdr);width:100%;max-width:480px;padding:1.5rem;box-shadow:var(--shm);max-height:94vh;overflow-y:auto}
+.md.wide{max-width:640px}
+.mt{font-size:16px;font-weight:500;padding-bottom:1rem;margin-bottom:1.25rem;border-bottom:1px solid var(--bdr)}
+.ma{display:flex;gap:8px;justify-content:flex-end;margin-top:1.25rem;padding-top:1rem;border-top:1px solid var(--bdr)}
+
+/* ── CAMERA ── */
+.cam-wrap{position:relative;width:100%;aspect-ratio:4/3;background:#111;border-radius:var(--r);overflow:hidden;margin-bottom:.75rem}
+.cam-wrap video,.cam-wrap img,.cam-wrap canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.face-guide{position:absolute;top:50%;left:50%;transform:translate(-50%,-60%);width:45%;aspect-ratio:3/4;border:2px dashed rgba(255,255,255,.6);border-radius:50%;pointer-events:none}
+.face-hint{position:absolute;bottom:8px;width:100%;text-align:center;color:rgba(255,255,255,.8);font-size:12px;pointer-events:none}
+.cam-ph{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#666;gap:8px}
+.cam-ctrl{display:flex;gap:8px;justify-content:center;margin-bottom:.5rem}
+.shutter{width:56px;height:56px;border-radius:50%;border:3px solid #fff;background:rgba(255,255,255,.2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:22px;transition:all .15s}
+.shutter:hover{background:rgba(255,255,255,.35)}
+.cam-status{font-size:12px;text-align:center;margin-bottom:.5rem;color:var(--mut)}
+
+/* ── FORMS ── */
+.fg{margin-bottom:1rem}
+.fl{display:block;font-size:12px;font-weight:500;color:var(--mut);margin-bottom:5px;text-transform:uppercase;letter-spacing:.06em}
+input[type=text],input[type=password],input[type=date],input[type=time],select,textarea{width:100%;padding:8px 10px;border-radius:var(--r);border:1px solid var(--bdr);background:var(--sur);color:var(--txt);font-size:14px;font-family:'Noto Sans TC',sans-serif;transition:border-color .15s;appearance:auto}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--AC);box-shadow:0 0 0 3px rgba(45,74,106,.08)}
+textarea{resize:vertical}
+.ac-wrap{position:relative}
+.ac-list{position:absolute;top:100%;left:0;right:0;background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);box-shadow:var(--shm);z-index:600;max-height:180px;overflow-y:auto;display:none}
+.ac-item{padding:8px 12px;cursor:pointer;font-size:14px;transition:background .1s}
+.ac-item:hover,.ac-item.sel{background:var(--Bl);color:var(--B)}
+.rg{display:flex;flex-direction:column;gap:6px}
+.rl{display:flex;align-items:center;gap:8px;cursor:pointer;padding:7px 10px;border-radius:var(--r);border:1px solid var(--bdr);transition:all .12s}
+.rl:hover{background:var(--bg);border-color:var(--AC)}
+.rl input[type=radio]{width:15px;height:15px;accent-color:var(--AC)}
+.dvd{height:1px;background:var(--bdr);margin:1rem 0}
+
+/* ── BTN ── */
+.btn{padding:6px 14px;border-radius:var(--r);border:1px solid transparent;font-family:'Noto Sans TC',sans-serif;font-size:13px;cursor:pointer;transition:all .15s}
+.btn-o{background:transparent;color:var(--txt);border-color:var(--bdr)}.btn-o:hover{background:var(--bg)}
+.btn-p{background:var(--AC);color:#fff;border-color:var(--AC)}.btn-p:hover{background:#1e3a52}
+.btn-p:disabled,.btn-s:disabled{opacity:.5;cursor:not-allowed}
+.btn-s{background:var(--G);color:#fff;border-color:var(--G)}.btn-s:hover{background:#1e4f38}
+.btn-d{color:var(--R);border-color:var(--Rb);background:transparent}.btn-d:hover{background:var(--Rl)}
+.btn-w{color:var(--A);border-color:var(--Ab);background:transparent}.btn-w:hover{background:var(--Al)}
+.btn-sm{padding:4px 10px;font-size:12px}
+.btn-xs{padding:2px 7px;font-size:11px}
+.btn-full{width:100%;padding:10px;font-size:14px}
+
+/* ── ADMIN ── */
+.admin-layout{display:flex;height:100%}
+.sb{width:195px;background:var(--sur);border-right:1px solid var(--bdr);padding:1rem 0;flex-shrink:0;overflow-y:auto}
+.ss{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.08em;padding:.75rem 1.25rem .25rem;font-weight:500}
+.si{padding:9px 1.25rem 9px 1rem;font-size:14px;cursor:pointer;color:var(--mut);transition:all .12s;border-left:3px solid transparent;display:flex;align-items:center;gap:8px}
+.si:hover{background:var(--bg);color:var(--txt)}.si.active{color:var(--AC);border-left-color:var(--AC);background:var(--Bl);font-weight:500}
+.si.dan{color:var(--R)}.si.dan:hover{background:var(--Rl)}
+.ac2{flex:1;padding:1.25rem;overflow-y:auto}
+.ap{display:none}.ap.active{display:block}
+.tb{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem}
+.tb h2{font-size:16px;font-weight:500}
+.ta{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.tc{background:var(--sur);border-radius:var(--rl);border:1px solid var(--bdr);overflow:hidden;box-shadow:var(--sh)}
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px;min-width:380px}
+thead th{text-align:left;padding:8px 12px;color:var(--mut);border-bottom:1.5px solid var(--bdr);font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:.04em;background:var(--bg)}
+td{padding:8px 12px;border-bottom:1px solid var(--bdr);color:var(--txt);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:var(--bg)}
+
+/* ── LOGIN ── */
+.lc{max-width:380px;margin:5rem auto;background:var(--sur);border-radius:var(--rl);border:1px solid var(--bdr);padding:2rem;box-shadow:var(--shm)}
+
+/* ── PHOTO THUMB ── */
+.pt{width:44px;height:34px;border-radius:4px;object-fit:cover;cursor:pointer;border:1px solid var(--bdr)}
+
+/* ── BADGE ── */
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:500;border:1px solid}
+.b-adm{background:var(--Pl);color:var(--P);border-color:var(--Pb)}
+.b-rep{background:var(--Al);color:var(--A);border-color:var(--Ab)}
+
+/* ── ALERT ── */
+.alert{padding:10px 12px;border-radius:var(--r);font-size:13px;margin-bottom:1rem;border:1px solid}
+.ai{background:var(--Bl);color:var(--B);border-color:var(--Bb)}
+.as{background:var(--Gl);color:var(--G);border-color:var(--Gb)}
+.aw{background:var(--Al);color:var(--A);border-color:var(--Ab)}
+.ad{background:var(--Rl);color:var(--R);border-color:var(--Rb)}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:1.25rem;right:1.25rem;z-index:9999;padding:10px 16px;border-radius:var(--r);font-size:13px;font-weight:500;box-shadow:var(--shm);animation:su .2s ease;max-width:300px;pointer-events:none}
+@keyframes su{from{transform:translateY(8px);opacity:0}to{transform:translateY(0);opacity:1}}
+.ts{background:var(--G);color:#D8F3DC}.ti{background:var(--AC);color:#EAF2FB}
+.tw2{background:#854F0B;color:#FAEEDA}.td2{background:var(--R);color:#FDECEA}
+
+/* ── DRAG ── */
+.dh{cursor:grab;color:var(--mut);padding:0 4px;font-size:16px;user-select:none}
+tr.dg-over{outline:2px solid var(--AC)}
+tr.dg-src{opacity:.35}
+
+/* ── MOVE PERSON ── */
+.move-row{display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--bdr)}
+
+/* ── NOTICE EDITOR ── */
+.notice-editor textarea{min-height:80px}
+
+/* ── NUMPAD ── */
+.numpad-wrap{background:var(--bg);border-radius:var(--rl);padding:.75rem;border:1px solid var(--bdr)}
+.numpad-display{background:var(--sur);border:1.5px solid var(--AC);border-radius:var(--r);padding:.5rem .75rem;margin-bottom:.6rem;display:flex;align-items:baseline;gap:.6rem;min-height:46px}
+.numpad-seat{font-size:22px;font-weight:700;font-family:'IBM Plex Mono',monospace;color:var(--AC);min-width:44px;letter-spacing:.05em}
+.numpad-name{font-size:14px;color:var(--G);font-weight:500;transition:all .2s}
+.numpad-name.err{color:var(--R)}
+.numpad-name.hint{color:var(--mut);font-size:12px;font-weight:400}
+.numpad-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+.nk{padding:9px 4px;border-radius:var(--r);border:1px solid var(--bdr);background:var(--sur);font-size:17px;font-weight:500;font-family:'IBM Plex Mono',monospace;cursor:pointer;transition:all .12s;text-align:center;color:var(--txt)}
+.nk:hover{background:var(--Bl);border-color:var(--Bb);color:var(--B)}
+.nk:active{transform:scale(.92);background:var(--Bl)}
+.nk.del{font-size:14px;color:var(--R);border-color:var(--Rb)}
+.nk.del:hover{background:var(--Rl)}
+.nk.zero{grid-column:span 2}
+.seat-hint{font-size:11px;color:var(--mut);text-align:center;margin-top:.4rem}
+
+/* ── TWO-COLUMN MODAL ── */
+.md.horiz{max-width:760px}
+.modal-cols{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;align-items:start}
+.modal-col-label{font-size:12px;font-weight:500;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.5rem}
+
+/* ── WEEKDAY ── */
+.wd{font-size:11px;color:var(--mut);font-weight:400}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">🎹 <small>莊敬音樂科</small> 琴房鑰匙登記系統</div>
+  <button class="tab-btn active" onclick="switchTab('borrow')">🔑 借還登記</button>
+  <button class="tab-btn" onclick="switchTab('hist')">📋 借還紀錄</button>
+  <div class="sp"></div>
+  <button class="nbtn" style="margin-right:6px" onclick="openRepairM()">🔧 報修登記</button>
+  <button class="nbtn" onclick="openAdminLogin()">⚙ 管理後台</button>
+</div>
+
+<div class="pages">
+
+<!-- ══ BORROW PAGE ══ -->
+<div id="page-borrow" class="page active">
+<div class="borrow-layout">
+  <div class="notice-bar" id="notice-bar"></div>
+  <div class="stats-row" id="stats-row"></div>
+  <div class="floor-tabs" id="floor-tabs"></div>
+  <div style="font-size:12px;color:var(--mut);font-weight:500;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.75rem" id="floor-lbl">B1 樓層</div>
+  <div class="rooms-wrap"><div class="rooms-grid" id="rooms-grid"></div></div>
+</div>
+</div>
+
+<!-- ══ HISTORY PAGE ══ -->
+<div id="page-hist" class="page">
+<div class="hist-page">
+  <div class="hist-filters">
+    <h2 style="font-size:16px;font-weight:500;margin-right:8px">📋 歷史借還紀錄</h2>
+    <select id="ph-room" onchange="renderPubH()" style="width:120px"><option value="">所有琴房</option></select>
+    <input type="text" id="ph-q" placeholder="搜尋班級、姓名..." style="width:180px" oninput="renderPubH()">
+  </div>
+  <div class="hist-table-wrap">
+    <div class="tc"><div class="tw" id="ph-tbl"></div></div>
+  </div>
+</div>
+</div>
+
+<!-- ══ ADMIN LOGIN ══ -->
+<div id="page-alog" class="page">
+<div style="padding:1rem">
+<div class="lc">
+  <div style="text-align:center;font-size:36px;margin-bottom:.75rem">🎹</div>
+  <div style="text-align:center;font-size:17px;font-weight:500;margin-bottom:.25rem">管理後台登入</div>
+  <div style="text-align:center;font-size:13px;color:var(--mut);margin-bottom:1.5rem">莊敬音樂科琴房鑰匙登記系統</div>
+  <div class="fg"><label class="fl">帳號</label><input type="text" id="lu" autocomplete="username" onkeydown="if(event.key==='Enter')doLogin()"></div>
+  <div class="fg"><label class="fl">密碼</label><input type="password" id="lp" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
+  <div id="lerr" class="alert ad" style="display:none">帳號或密碼錯誤</div>
+  <button class="btn btn-p btn-full" onclick="doLogin()">登入</button>
+  <div style="text-align:center;margin-top:1rem">
+    <button class="btn btn-o btn-sm" onclick="switchTab('borrow')">← 返回主畫面</button>
+  </div>
+</div>
+</div>
+</div>
+
+<!-- ══ ADMIN DASHBOARD ══ -->
+<div id="page-adm" class="page">
+<div class="admin-layout">
+  <div class="sb">
+    <div class="ss">管理功能</div>
+    <div class="si active" id="nav-people" onclick="aN('people')">👥 人員名單</div>
+    <div class="si" id="nav-rooms" onclick="aN('rooms')">🏠 琴房管理</div>
+    <div class="si" id="nav-hist" onclick="aN('hist')">📋 歷史紀錄</div>
+    <div class="si" id="nav-repairs" onclick="aN('repairs')">🔧 維修清單</div>
+    <div id="adm-only">
+      <div class="si" id="nav-rtypes" onclick="aN('rtypes')">⚙ 報修類型</div>
+      <div class="si" id="nav-notice" onclick="aN('notice')">📢 公告說明</div>
+      <div class="si" id="nav-accts" onclick="aN('accts')">🔐 帳號管理</div>
+    </div>
+    <div class="dvd" style="margin:.5rem 0"></div>
+    <div class="si" id="nav-mypw" onclick="aN('mypw')">🔑 修改密碼</div>
+    <div class="si dan" onclick="adminLogout()">🚪 登出</div>
+  </div>
+  <div class="ac2">
+    <div id="adm-people" class="ap active">
+      <div class="tb"><h2>👥 人員名單管理</h2>
+        <div class="ta">
+          <button class="btn btn-o btn-sm" onclick="importCSV()">📄 匯入CSV</button>
+          <button class="btn btn-o btn-sm" onclick="openAddCls()">+ 班級</button>
+          <button class="btn btn-p btn-sm" onclick="openAddPerson()">+ 人員</button>
+        </div>
+      </div>
+      <div class="alert ai" style="font-size:12px;margin-bottom:1rem">CSV格式每行：<code style="background:#dde8f5;padding:1px 4px;border-radius:3px;font-family:monospace">班級,座號,姓名</code>　例：<code style="background:#dde8f5;padding:1px 4px;border-radius:3px;font-family:monospace">301班,01,王小明</code>　可拖曳調整人員所屬班級</div>
+      <div class="tc"><div class="tw" id="ppl-tbl"></div></div>
+    </div>
+    <div id="adm-rooms" class="ap">
+      <div class="tb"><h2>🏠 琴房管理</h2>
+        <div class="ta">
+          <button class="btn btn-o btn-sm" onclick="openAddFloor()">+ 樓層</button>
+          <button class="btn btn-p btn-sm" onclick="openAddRoom()">+ 琴房</button>
+        </div>
+      </div>
+      <div class="alert ai" style="font-size:12px;margin-bottom:1rem">拖曳 ⠿ 調整順序；勾選「禁止借用」鑰匙不開放借出</div>
+      <div id="rmgmt"></div>
+    </div>
+    <div id="adm-hist" class="ap">
+      <div class="tb"><h2>📋 歷史借還紀錄</h2>
+        <div class="ta">
+          <select id="ah-room" onchange="renderAdmH()" style="width:120px"><option value="">所有琴房</option></select>
+          <input type="text" id="ah-q" placeholder="搜尋..." style="width:160px" oninput="renderAdmH()">
+        </div>
+      </div>
+      <div class="tc"><div class="tw" id="ah-tbl"></div></div>
+    </div>
+    <div id="adm-repairs" class="ap">
+      <div class="tb"><h2>🔧 維修清單</h2>
+        <div class="ta">
+          <select id="rep-status-f" onchange="renderRepTbl()" style="width:110px">
+            <option value="">所有狀態</option>
+            <option value="待處理">待處理</option>
+            <option value="處理中">處理中</option>
+            <option value="已完成">已完成</option>
+          </select>
+          <input type="text" id="rep-q" placeholder="搜尋琴房、類型..." style="width:160px" oninput="renderRepTbl()">
+        </div>
+      </div>
+      <div class="tc"><div class="tw" id="rep-tbl"></div></div>
+    </div>
+    <div id="adm-rtypes" class="ap">
+      <div class="tb"><h2>⚙ 報修問題類型</h2><button class="btn btn-p btn-sm" onclick="openAddRType()">+ 新增</button></div>
+      <div class="tc"><div class="tw" id="rt-tbl"></div></div>
+    </div>
+    <div id="adm-notice" class="ap">
+      <div class="tb"><h2>📢 公告說明欄</h2></div>
+      <div class="alert ai" style="margin-bottom:1rem;font-size:13px">此公告會顯示在借還登記首頁頂部，提醒學生重要訊息。</div>
+      <div class="fg"><label class="fl">公告內容（留空則不顯示）</label>
+        <textarea id="notice-text" rows="4" placeholder="例：本週五下午2點起，B1琴房鑰匙暫停借用，敬請配合。"></textarea>
+      </div>
+      <button class="btn btn-p" onclick="saveNotice()">儲存公告</button>
+    </div>
+    <div id="adm-accts" class="ap">
+      <div class="tb"><h2>🔐 帳號管理</h2><button class="btn btn-p btn-sm" onclick="openAddAcct()">+ 新增帳號</button></div>
+      <div class="tc"><div class="tw" id="acct-tbl"></div></div>
+    </div>
+    <div id="adm-mypw" class="ap">
+      <div class="tb"><h2>🔑 修改我的密碼</h2></div>
+      <div style="max-width:360px">
+        <div class="fg"><label class="fl">目前密碼</label><input type="password" id="cpw-old"></div>
+        <div class="fg"><label class="fl">新密碼</label><input type="password" id="cpw-new"></div>
+        <div class="fg"><label class="fl">確認新密碼</label><input type="password" id="cpw-new2"></div>
+        <button class="btn btn-p" onclick="changeMyPw()">確認修改</button>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+</div><!-- /pages -->
+<div id="modal-root"></div>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
+<script>
+/* ═══ FIREBASE CONFIG — 請填入你的設定 ═══ */
+const firebaseConfig = {
+  apiKey: "AIzaSyB1o4OnysVdcqrL5niH-mFpsXlXgpyh1lo",
+  authDomain: "musickeyjjvs.firebaseapp.com",
+  databaseURL: "https://musickeyjjvs-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "musickeyjjvs",
+  storageBucket: "musickeyjjvs.firebasestorage.app",
+  messagingSenderId: "285680104703",
+  appId: "1:285680104703:web:2d09d85a7af6984c5a08ca"
+};
+
+/* ═══ STORAGE ═══ */
+const SK='zjms_v4'; // localStorage fallback key
+
+// --- Firebase 初始化 ---
+let fbApp, fbDB, fbRef;
+let fbReady = false;
+let pendingSave = false;
+let saveTimer = null;
+
+function initFirebase(){
+  try {
+    fbApp = firebase.initializeApp(FB_CONFIG);
+    fbDB  = firebase.database();
+    fbRef = fbDB.ref('piano_system');
+    // 即時監聽雲端資料變更（其他裝置操作時自動同步）
+    fbRef.on('value', snapshot => {
+      const raw = snapshot.val();
+      if(raw){
+        const d = raw;
+        cleanOld(d); migratePeople(d);
+        DB = d;
+        // 同步本機備份
+        try{ localStorage.setItem(SK, JSON.stringify(DB)); }catch(e){}
+        // 更新畫面
+        showNotice(); renderStats(); renderFT(); renderRooms();
+        if(document.getElementById('page-hist')?.classList.contains('active')){ popPHF(); renderPubH(); }
+        if(document.getElementById('page-adm')?.classList.contains('active') && typeof renderAllAdm==='function'){ renderAllAdm(); }
+      }
+      if(!fbReady){
+        fbReady = true;
+        showNotice(); renderStats(); renderFT(); renderRooms();
+      }
+    }, err => {
+      console.warn('Firebase 監聽失敗，使用本機模式', err);
+      showT('⚠ 離線模式（資料不同步）','tw2');
+      fallbackLoad();
+    });
+  } catch(e){
+    console.warn('Firebase 初始化失敗', e);
+    fallbackLoad();
+  }
+}
+
+function fallbackLoad(){
+  try{const d=JSON.parse(localStorage.getItem(SK)||'null');if(d){cleanOld(d);migratePeople(d);DB=d;}}catch(e){}
+  fbReady = true;
+  showNotice(); renderStats(); renderFT(); renderRooms();
+}
+
+function loadDB(){
+  // 優先從本機讀取作為初始值，Firebase 監聽器會覆蓋更新
+  try{const d=JSON.parse(localStorage.getItem(SK)||'null');if(d){cleanOld(d);migratePeople(d);return d;}}catch(e){}
+  return defDB();
+}
+
+function saveDB(){
+  // 1. 立即寫入本機備份（確保離線可用）
+  try{ localStorage.setItem(SK, JSON.stringify(DB)); }catch(e){ showT('本機儲存空間不足','td2'); }
+  // 2. 防抖：100ms 內多次 saveDB 只上傳一次
+  if(saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(()=>{
+    if(fbRef && fbReady){
+      fbRef.set(DB).catch(err=>{
+        console.warn('Firebase 寫入失敗', err);
+        showT('⚠ 雲端同步失敗（已儲存本機）','tw2');
+      });
+    }
+  }, 100);
+}
+function cleanOld(d){
+  const cut=Date.now()-15*864e5;
+  if(d.history)d.history=d.history.filter(h=>{const t=new Date(h.returnTime||h.borrowTime).getTime();return isNaN(t)||t>=cut;});
+  if(d.repairs)d.repairs=d.repairs.filter(r=>{if(r.status==='已完成'){const t=new Date(r.time).getTime();return isNaN(t)||t>=cut;}return true;});
+}
+function migratePeople(d){
+  // migrate old classes object to people array if needed
+  if(!d.people&&d.classes){
+    d.people=[];let id=1;
+    Object.entries(d.classes).forEach(([cls,names])=>{
+      names.forEach((name,i)=>{d.people.push({id:id++,cls,seatNo:String(i+1).padStart(2,'0'),name});});
+    });
+    d.clsList=Object.keys(d.classes);
+    delete d.classes;
+  }
+  // migrate existing people without seatNo
+  if(d.people){
+    const seenCls={};
+    d.people.forEach(p=>{
+      if(!p.seatNo){
+        if(!seenCls[p.cls])seenCls[p.cls]=0;
+        seenCls[p.cls]++;
+        p.seatNo=String(seenCls[p.cls]).padStart(2,'0');
+      }
+    });
+  }
+}
+function ts(daysAgo=0){const n=new Date(Date.now()+daysAgo*864e5);return n.toISOString().replace('T',' ').slice(0,16);}
+function defDB(){return{
+  floors:['B1','1F','2F'],
+  rooms:[
+    {id:'r1',floor:'B1',name:'B101',status:'av',kd:false,order:0},
+    {id:'r2',floor:'B1',name:'B102',status:'bw',borrower:{cls:'302班',name:'王小明',time:'09:30',reason:'上課開門'},kd:false,order:1},
+    {id:'r3',floor:'B1',name:'B103',status:'av',kd:false,order:2},
+    {id:'r4',floor:'B1',name:'B104',status:'rp',issue:'門鎖損壞',kd:false,order:3},
+    {id:'r5',floor:'1F',name:'101',status:'av',kd:false,order:0},
+    {id:'r6',floor:'1F',name:'102',status:'bw',borrower:{cls:'301班',name:'陳美玲',time:'10:15',reason:'自主練習使用'},kd:false,order:1},
+    {id:'r7',floor:'1F',name:'103',status:'av',kd:false,order:2},
+    {id:'r8',floor:'1F',name:'104',status:'av',kd:true,order:3},
+    {id:'r9',floor:'2F',name:'201',status:'av',kd:false,order:0},
+    {id:'r10',floor:'2F',name:'202',status:'bw',borrower:{cls:'401班',name:'葉冠廷',time:'08:45',reason:'自主練習使用'},kd:false,order:1},
+    {id:'r11',floor:'2F',name:'203',status:'av',kd:false,order:2},
+  ],
+  clsList:['301班','302班','303班','401班','402班'],
+  people:[
+    {id:1,cls:'301班',seatNo:'01',name:'王小明'},{id:2,cls:'301班',seatNo:'02',name:'李大華'},{id:3,cls:'301班',seatNo:'03',name:'陳美玲'},
+    {id:4,cls:'301班',seatNo:'04',name:'張志遠'},{id:5,cls:'301班',seatNo:'05',name:'林雅惠'},
+    {id:6,cls:'302班',seatNo:'01',name:'劉建宏'},{id:7,cls:'302班',seatNo:'02',name:'吳淑芬'},{id:8,cls:'302班',seatNo:'03',name:'黃俊傑'},
+    {id:9,cls:'302班',seatNo:'04',name:'蔡雅婷'},{id:10,cls:'302班',seatNo:'05',name:'鄭宇翔'},
+    {id:11,cls:'303班',seatNo:'01',name:'許淑娟'},{id:12,cls:'303班',seatNo:'02',name:'楊明哲'},{id:13,cls:'303班',seatNo:'03',name:'謝志豪'},
+    {id:14,cls:'401班',seatNo:'01',name:'曾淑芳'},{id:15,cls:'401班',seatNo:'02',name:'葉冠廷'},{id:16,cls:'401班',seatNo:'03',name:'賴欣怡'},
+    {id:17,cls:'402班',seatNo:'01',name:'施俊豪'},{id:18,cls:'402班',seatNo:'02',name:'朱淑玲'},{id:19,cls:'402班',seatNo:'03',name:'鄭明哲'},
+  ],
+  history:[],
+  repairs:[
+    {id:1,room:'B104',type:'門鎖損壞',detail:'門把鬆動',reporter:'林雅惠',cls:'301班',time:ts(-2),status:'待處理',note:''},
+    {id:2,room:'102',type:'琴鍵故障',detail:'高音區第三鍵卡住',reporter:'劉建宏',cls:'302班',time:ts(-1),status:'處理中',note:'已聯絡廠商'},
+  ],
+  repairTypes:['鑰匙遺失','門鎖損壞','琴鍵故障','環境問題（冷氣、燈光等）','其他'],
+  accounts:[{u:'王國霖',p:'000',role:'admin',name:'王國霖'}],
+  notice:'',
+  ids:{h:100,rep:10,ppl:30},
+};}
+
+let DB=loadDB();
+let CFL=DB.floors[0]||'B1';
+let CUser=null;
+let vs=null,cp=null;
+let dragId=null;
+
+const WD=['日','一','二','三','四','五','六'];
+function fmtDate(str){
+  if(!str)return'';
+  const d=new Date(str.replace(' ','T'));
+  if(isNaN(d))return str;
+  return str.slice(0,10)+'（'+WD[d.getDay()]+'）'+(str.length>10?str.slice(10):'');
+}
+
+/* ═══ TAB ═══ */
+function switchTab(t){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+t).classList.add('active');
+  const tabs=['borrow','hist'];const i=tabs.indexOf(t);
+  if(i>=0)document.querySelectorAll('.tab-btn')[i].classList.add('active');
+  if(t==='borrow'){showNotice();renderStats();renderFT();renderRooms();}
+  if(t==='hist'){popPHF();renderPubH();}
+}
+function openAdminLogin(){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-alog').classList.add('active');
+  document.getElementById('lu').value='';document.getElementById('lp').value='';
+  document.getElementById('lerr').style.display='none';
+  setTimeout(()=>document.getElementById('lu').focus(),100);
+}
+
+/* ═══ AUTH ═══ */
+function doLogin(){
+  const u=v('lu').trim(),p=v('lp');
+  const a=DB.accounts.find(x=>x.u===u&&x.p===p);
+  if(!a){document.getElementById('lerr').style.display='';return;}
+  CUser=a;
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-adm').classList.add('active');
+  document.getElementById('adm-only').style.display=a.role==='admin'?'':'none';
+  if(a.role==='repair'){aN('repairs');renderRepTbl();}
+  else{aN('people');renderAllAdm();}
+  showT(`歡迎，${a.name}（${a.role==='admin'?'管理員':'維修人員'}）`,'ts');
+}
+function adminLogout(){if(!confirm('確認登出？'))return;CUser=null;switchTab('borrow');}
+
+/* ═══ NOTICE ═══ */
+function showNotice(){
+  const nb=document.getElementById('notice-bar');
+  if(DB.notice&&DB.notice.trim()){nb.textContent='📢 '+DB.notice;nb.classList.add('show');}
+  else nb.classList.remove('show');
+}
+
+/* ═══ STATS ═══ */
+function renderStats(){
+  const av=DB.rooms.filter(r=>r.status==='av'&&!r.kd).length;
+  const bw=DB.rooms.filter(r=>r.status==='bw').length;
+  const rp=DB.rooms.filter(r=>r.status==='rp').length;
+  const dk=DB.rooms.filter(r=>r.kd).length;
+  document.getElementById('stats-row').innerHTML=
+    `<div class="sc"><div class="sl">可借用</div><div class="sv g">${av}</div></div>
+     <div class="sc"><div class="sl">借用中</div><div class="sv r">${bw}</div></div>
+     <div class="sc"><div class="sl">維修中</div><div class="sv a">${rp}</div></div>
+     <div class="sc"><div class="sl">禁止借用</div><div class="sv" style="color:#666">${dk}</div></div>`;
+}
+
+/* ═══ FLOOR TABS ═══ */
+function renderFT(){
+  document.getElementById('floor-tabs').innerHTML=DB.floors.map(f=>
+    `<button class="fb${f===CFL?' active':''}" onclick="setFL('${f}',this)">${f}</button>`).join('');
+}
+function setFL(f,btn){CFL=f;document.querySelectorAll('.fb').forEach(b=>b.classList.remove('active'));btn.classList.add('active');document.getElementById('floor-lbl').textContent=f+' 樓層';renderRooms();}
+
+/* ═══ ROOMS ═══ */
+function renderRooms(){
+  const rooms=DB.rooms.filter(r=>r.floor===CFL).sort((a,b)=>(a.order||0)-(b.order||0));
+  document.getElementById('rooms-grid').innerHTML=rooms.map(r=>{
+    let cc=r.kd?'dk':r.status,badge='',info='';
+    if(r.kd){badge='<div class="rb bdk">🚫 禁止借用</div>';}
+    else if(r.status==='av'){badge='<div class="rb bav">✓ 可借用</div>';}
+    else if(r.status==='bw'){
+      badge='<div class="rb bbw">● 借用中</div>';
+      info=`<div class="ri">${r.borrower.cls}<br>${r.borrower.seatNo||''}號 ${r.borrower.name}<br>自 ${r.borrower.time} 起<br><span style="color:var(--AC);font-size:10px">${r.borrower.reason||''}</span></div>`;
+    }else{badge='<div class="rb brp">⚠ 維修中</div>';info=`<div class="ri">${r.issue||''}</div>`;}
+    return`<div class="rc ${cc}" onclick="openRM('${r.id}')"><div class="rn">${r.name}</div>${badge}${info}</div>`;
+  }).join('');
+}
+
+/* ═══ AUTOCOMPLETE helper ═══ */
+function mkAC(inputId,listId,getItems,onSelect){
+  const inp=document.getElementById(inputId);
+  const lst=document.getElementById(listId);
+  if(!inp||!lst)return;
+  let idx=-1;
+  function show(items){
+    if(!items.length){lst.style.display='none';return;}
+    lst.innerHTML=items.map((x,i)=>`<div class="ac-item" data-val="${x}" onmousedown="event.preventDefault()" onclick="acPick('${inputId}','${listId}','${onSelect}','${x}')">${x}</div>`).join('');
+    lst.style.display='';idx=-1;
+  }
+  inp.addEventListener('input',()=>{
+    const q=inp.value.trim().toLowerCase();
+    const items=getItems().filter(x=>x.toLowerCase().includes(q));
+    show(items);
+  });
+  inp.addEventListener('keydown',e=>{
+    const items=lst.querySelectorAll('.ac-item');
+    if(!items.length)return;
+    if(e.key==='ArrowDown'){idx=Math.min(idx+1,items.length-1);items.forEach((x,i)=>x.classList.toggle('sel',i===idx));e.preventDefault();}
+    else if(e.key==='ArrowUp'){idx=Math.max(idx-1,0);items.forEach((x,i)=>x.classList.toggle('sel',i===idx));e.preventDefault();}
+    else if(e.key==='Enter'&&idx>=0){const val=items[idx].dataset.val;inp.value=val;lst.style.display='none';if(window[onSelect])window[onSelect](val);}
+    else if(e.key==='Escape'){lst.style.display='none';}
+  });
+  inp.addEventListener('focus',()=>{
+    const q=inp.value.trim().toLowerCase();
+    const items=getItems().filter(x=>!q||x.toLowerCase().includes(q));
+    show(items);
+  });
+  document.addEventListener('click',e=>{if(e.target!==inp&&e.target!==lst&&!lst.contains(e.target))lst.style.display='none';});
+}
+function acPick(inputId,listId,cb,val){
+  const inp=document.getElementById(inputId);if(inp)inp.value=val;
+  const lst=document.getElementById(listId);if(lst)lst.style.display='none';
+  if(cb&&window[cb])window[cb](val);
+}
+
+/* ═══ BORROW MODAL ═══ */
+function openRM(id){
+  const r=DB.rooms.find(x=>x.id===id);if(!r)return;
+  if(r.kd){showT('此琴房禁止借用鑰匙','tw2');return;}
+  if(r.status==='rp'){showT('此琴房維修中','tw2');return;}
+  r.status==='av'?openBM(r):openRetM(r);
+}
+function openBM(r){
+  const clsOpts=DB.clsList.map(c=>`<option value="${c}">${c}</option>`).join('');
+  showM(`<div class="mt">🔑 ${r.name} — 借用登記</div>
+    <div class="modal-cols">
+      <!-- 左欄：班級 + 座號鍵盤 -->
+      <div>
+        <div class="fg"><label class="fl">班級</label>
+          <select id="bc" onchange="bcCls(this.value)"><option value="">請選擇班級...</option>${clsOpts}</select></div>
+        <div class="fg"><label class="fl">座號 → 自動帶入姓名</label>
+          <div class="numpad-wrap">
+            <div class="numpad-display">
+              <span class="numpad-seat" id="bn-seat">—</span>
+              <span class="numpad-name hint" id="bn-name">請輸入座號</span>
+            </div>
+            <div class="numpad-grid">
+              <button class="nk" onclick="nkPress('bn','1')">1</button>
+              <button class="nk" onclick="nkPress('bn','2')">2</button>
+              <button class="nk" onclick="nkPress('bn','3')">3</button>
+              <button class="nk" onclick="nkPress('bn','4')">4</button>
+              <button class="nk" onclick="nkPress('bn','5')">5</button>
+              <button class="nk" onclick="nkPress('bn','6')">6</button>
+              <button class="nk" onclick="nkPress('bn','7')">7</button>
+              <button class="nk" onclick="nkPress('bn','8')">8</button>
+              <button class="nk" onclick="nkPress('bn','9')">9</button>
+              <button class="nk zero" onclick="nkPress('bn','0')">0</button>
+              <button class="nk del" onclick="nkDel('bn')">⌫</button>
+            </div>
+            <div class="seat-hint">輸入座號後自動顯示姓名</div>
+          </div>
+          <input type="hidden" id="bn-val">
+        </div>
+      </div>
+      <!-- 右欄：借用原因 -->
+      <div>
+        <div class="fg"><label class="fl">借用原因</label>
+          <div class="rg" style="gap:8px">
+            <label class="rl"><input type="radio" name="br" value="上課開門"> 🏫 上課開門</label>
+            <label class="rl"><input type="radio" name="br" value="自主練習使用"> 🎹 自主練習使用</label>
+            <label class="rl"><input type="radio" name="br" value="其他"> ✏ 其他</label>
+          </div>
+        </div>
+        <div class="fg" id="br-ob" style="display:none"><label class="fl">其他原因說明</label>
+          <input type="text" id="br-ot" placeholder="請說明借用原因..."></div>
+      </div>
+    </div>
+    <div class="ma"><button class="btn btn-o" onclick="closeM()">取消</button>
+    <button class="btn btn-p" onclick="confBorrow('${r.id}')">開始借用</button></div>`,true,'horiz');
+  document.querySelectorAll('input[name=br]').forEach(el=>el.onchange=()=>{
+    document.getElementById('br-ob').style.display=el.value==='其他'?'':'none';
+  });
+}
+function bcCls(cls){
+  // clear seat when class changes
+  nkReset('bn');
+}
+
+// ── Numpad state ──
+const nkState={bn:'',rn2:''};
+function nkPress(field,digit){
+  if(nkState[field].length>=2)return; // max 2 digits
+  nkState[field]+=digit;
+  nkRefresh(field);
+}
+function nkDel(field){
+  nkState[field]=nkState[field].slice(0,-1);
+  nkRefresh(field);
+}
+function nkReset(field){
+  nkState[field]='';
+  nkRefresh(field);
+}
+function nkRefresh(field){
+  const seat=nkState[field];
+  const seatEl=document.getElementById(field+'-seat');
+  const nameEl=document.getElementById(field+'-name');
+  const hidEl=document.getElementById(field+'-val');
+  if(!seatEl||!nameEl)return;
+  seatEl.textContent=seat||'—';
+  if(!seat){
+    nameEl.textContent='請輸入座號';
+    nameEl.className='numpad-name hint';
+    if(hidEl)hidEl.value='';
+    return;
+  }
+  // pad to 2 digits for lookup
+  const padded=seat.padStart(2,'0');
+  const cls=v(field==='bn'?'bc':'rc2');
+  const p=cls
+    ?DB.people.find(x=>x.cls===cls&&x.seatNo===padded)
+    :DB.people.find(x=>x.seatNo===padded);
+  if(p){
+    nameEl.textContent='✓ '+p.name;
+    nameEl.className='numpad-name';
+    if(hidEl)hidEl.value=p.name;
+  } else if(seat.length===2){
+    nameEl.textContent='查無此座號';
+    nameEl.className='numpad-name err';
+    if(hidEl)hidEl.value='';
+  } else {
+    nameEl.textContent='輸入中...';
+    nameEl.className='numpad-name hint';
+    if(hidEl)hidEl.value='';
+  }
+}
+
+function confBorrow(id){
+  const cls=v('bc');
+  const seat=nkState['bn'];
+  const rsn=document.querySelector('input[name=br]:checked')?.value;
+  if(!cls){showT('請選擇班級','tw2');return;}
+  if(!seat){showT('請輸入座號','tw2');return;}
+  const padded=seat.padStart(2,'0');
+  const person=DB.people.find(p=>p.cls===cls&&p.seatNo===padded);
+  if(!person){showT(`${cls} 查無座號 ${padded}，無法借用`,'td2');return;}
+  if(!rsn){showT('請選擇借用原因','tw2');return;}
+  const rt=rsn==='其他'?(document.getElementById('br-ot')?.value?.trim()||'其他'):rsn;
+  if(rsn==='其他'&&!document.getElementById('br-ot')?.value?.trim()){showT('請填寫其他原因','tw2');return;}
+  const r=DB.rooms.find(x=>x.id===id);
+  r.status='bw';r.borrower={cls,seatNo:padded,name:person.name,time:nowT(),reason:rt};
+  DB.history.unshift({id:++DB.ids.h,room:r.name,rid:r.id,cls,seatNo:padded,name:person.name,borrowTime:ts(),returnTime:null,photo:null,reason:rt});
+  nkReset('bn');
+  saveDB();closeM();renderStats();renderRooms();showT(`${r.name} 借出 → ${cls} ${padded}號 ${person.name}（${rt}）`,'ts');
+}
+
+/* ═══ RETURN MODAL ═══ */
+function openRetM(r){
+  cp=null;
+  const clsOpts=DB.clsList.map(c=>`<option value="${c}">${c}</option>`).join('');
+  showM(`<div class="mt">↩ ${r.name} — 歸還登記</div>
+    <div class="alert ai" style="margin-bottom:1rem">借用者：<strong>${r.borrower.cls} ${r.borrower.seatNo||''}號 ${r.borrower.name}</strong>（${r.borrower.time}｜${r.borrower.reason||''}）</div>
+    <div class="modal-cols">
+      <!-- 左欄：班級 + 座號鍵盤 -->
+      <div>
+        <div class="fg"><label class="fl">歸還者班級</label>
+          <select id="rc2" onchange="rcCls(this.value)"><option value="">請選擇班級...</option>${clsOpts}</select></div>
+        <div class="fg"><label class="fl">歸還者座號 → 自動帶入姓名</label>
+          <div class="numpad-wrap">
+            <div class="numpad-display">
+              <span class="numpad-seat" id="rn2-seat">—</span>
+              <span class="numpad-name hint" id="rn2-name">請輸入座號</span>
+            </div>
+            <div class="numpad-grid">
+              <button class="nk" onclick="nkPress('rn2','1')">1</button>
+              <button class="nk" onclick="nkPress('rn2','2')">2</button>
+              <button class="nk" onclick="nkPress('rn2','3')">3</button>
+              <button class="nk" onclick="nkPress('rn2','4')">4</button>
+              <button class="nk" onclick="nkPress('rn2','5')">5</button>
+              <button class="nk" onclick="nkPress('rn2','6')">6</button>
+              <button class="nk" onclick="nkPress('rn2','7')">7</button>
+              <button class="nk" onclick="nkPress('rn2','8')">8</button>
+              <button class="nk" onclick="nkPress('rn2','9')">9</button>
+              <button class="nk zero" onclick="nkPress('rn2','0')">0</button>
+              <button class="nk del" onclick="nkDel('rn2')">⌫</button>
+            </div>
+            <div class="seat-hint">輸入座號後自動顯示姓名</div>
+          </div>
+          <input type="hidden" id="rn2-val">
+        </div>
+      </div>
+      <!-- 右欄：攝影機 -->
+      <div>
+        <label class="fl">拍攝歸還照片（必填）<span style="color:var(--R)">★</span></label>
+        <div class="cam-wrap" id="camwrap" style="margin-top:.3rem">
+          <div class="cam-ph"><div style="font-size:32px">📷</div><div style="font-size:12px;margin-top:6px">請點擊「開啟攝影機」</div></div>
+        </div>
+        <div class="cam-status" id="cam-status" style="margin-top:.4rem">尚未拍攝</div>
+        <div class="cam-ctrl" style="margin-top:.5rem">
+          <button class="btn btn-o btn-sm" id="bco" onclick="startCam()">📷 開啟攝影機</button>
+          <button class="shutter" id="bsn" onclick="takePhoto()" style="display:none" title="拍攝">📸</button>
+          <button class="btn btn-o btn-sm" id="brt" onclick="retake()" style="display:none">🔄 重拍</button>
+        </div>
+      </div>
+    </div>
+    <div class="ma"><button class="btn btn-o" onclick="closeM()">取消</button>
+    <button class="btn btn-s" id="bcr" onclick="confReturn('${r.id}')" disabled>✓ 確認歸還</button></div>`,true,'horiz');
+  nkReset('rn2');
+}
+function rcCls(cls){nkReset('rn2');}
+function startCam(){
+  navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:1280},height:{ideal:960}}})
+  .then(stream=>{
+    vs=stream;
+    const wrap=document.getElementById('camwrap');
+    wrap.innerHTML='<video id="camv" autoplay playsinline muted></video><div class="face-guide"></div><div class="face-hint">請手持鑰匙，讓臉和鑰匙都出現在畫面中</div>';
+    document.getElementById('camv').srcObject=stream;
+    document.getElementById('bco').style.display='none';
+    document.getElementById('bsn').style.display='';
+    document.getElementById('cam-status').textContent='攝影機已開啟，請對準後拍攝';
+  }).catch(e=>{
+    document.getElementById('camwrap').innerHTML='<div class="cam-ph"><div>⚠</div><div style="margin-top:6px;font-size:13px">攝影機無法開啟<br>請確認瀏覽器攝影機權限</div></div>';
+    document.getElementById('cam-status').textContent='攝影機存取失敗：'+e.message;
+  });
+}
+function takePhoto(){
+  const v2=document.getElementById('camv');if(!v2)return;
+  const c=document.createElement('canvas');
+  c.width=v2.videoWidth||640;c.height=v2.videoHeight||480;
+  c.getContext('2d').drawImage(v2,0,0);
+  cp=c.toDataURL('image/jpeg',.82);
+  stopCam();
+  document.getElementById('camwrap').innerHTML=`<img src="${cp}" alt="歸還照片">`;
+  document.getElementById('bsn').style.display='none';
+  document.getElementById('brt').style.display='';
+  document.getElementById('bcr').disabled=false;
+  document.getElementById('cam-status').textContent='✅ 照片已拍攝，可確認歸還';
+}
+function retake(){
+  cp=null;
+  document.getElementById('bcr').disabled=true;
+  document.getElementById('brt').style.display='none';
+  document.getElementById('bco').style.display='';
+  document.getElementById('camwrap').innerHTML='<div class="cam-ph"><div style="font-size:36px">📷</div><div style="font-size:13px;margin-top:6px">請點擊「開啟攝影機」</div></div>';
+  document.getElementById('cam-status').textContent='尚未拍攝';
+}
+function stopCam(){if(vs){vs.getTracks().forEach(t=>t.stop());vs=null;}}
+function confReturn(id){
+  const cls=v('rc2');
+  const seat=nkState['rn2'];
+  if(!cls){showT('請選擇歸還者班級','tw2');return;}
+  if(!seat){showT('請輸入座號','tw2');return;}
+  const padded=seat.padStart(2,'0');
+  const person=DB.people.find(p=>p.cls===cls&&p.seatNo===padded);
+  if(!person){showT(`${cls} 查無座號 ${padded}，無法歸還`,'td2');return;}
+  if(!cp){showT('請先拍攝鑰匙照片','tw2');return;}
+  const r=DB.rooms.find(x=>x.id===id);
+  const h=DB.history.find(x=>x.rid===id&&!x.returnTime);
+  const now=ts();
+  if(h){h.returnTime=now;h.photo=cp;h.returner={cls,seatNo:padded,name:person.name};}
+  else DB.history.unshift({id:++DB.ids.h,room:r.name,rid:r.id,cls:r.borrower.cls,seatNo:r.borrower.seatNo,name:r.borrower.name,borrowTime:r.borrower.time,returnTime:now,photo:cp,reason:r.borrower.reason,returner:{cls,seatNo:padded,name:person.name}});
+  r.status='av';delete r.borrower;cp=null;stopCam();nkReset('rn2');
+  saveDB();closeM();renderStats();renderRooms();showT(`${r.name} 歸還完成 ✓`,'ts');
+}
+
+/* ═══ REPAIR MODAL ═══ */
+function openRepairM(){
+  const tOpts=DB.repairTypes.map(t=>`<label class="rl"><input type="radio" name="rt" value="${t}"> ${t}</label>`).join('');
+  const clsOpts=DB.clsList.map(c=>`<option value="${c}">${c}</option>`).join('');
+  showM(`<div class="mt">🔧 報修登記</div>
+    <div class="fg"><label class="fl">選擇琴房</label>
+      <select id="rep-rm"><option value="">請選擇琴房...</option>${DB.rooms.map(r=>`<option value="${r.id}">${r.floor} - ${r.name}</option>`).join('')}</select></div>
+    <div class="fg"><label class="fl">問題類型</label><div class="rg">${tOpts}</div></div>
+    <div class="fg" id="rt-ob" style="display:none"><label class="fl">詳細說明</label><textarea id="rep-dt" rows="2" placeholder="請描述問題..."></textarea></div>
+    <div class="dvd"></div>
+    <div class="fg"><label class="fl">回報者班級</label>
+      <select id="rep-cl" onchange="repClsCh(this.value)"><option value="">請選擇...</option>${clsOpts}</select></div>
+    <div class="fg"><label class="fl">回報者姓名（可直接輸入）</label>
+      <div class="ac-wrap"><input type="text" id="rep-nm" placeholder="輸入或選擇姓名..." autocomplete="off">
+      <div class="ac-list" id="rep-nm-ac"></div></div></div>
+    <div class="ma"><button class="btn btn-o" onclick="closeM()">取消</button>
+    <button class="btn btn-p" onclick="submitRep()">提交報修</button></div>`,true);
+  document.querySelectorAll('input[name=rt]').forEach(el=>el.onchange=()=>{
+    document.getElementById('rt-ob').style.display=el.value==='其他'?'':'none';
+  });
+  setupRepNmAC();
+}
+function repClsCh(cls){setupRepNmAC(cls);}
+function setupRepNmAC(filterCls){
+  mkAC('rep-nm','rep-nm-ac',()=>{
+    const cls=filterCls||v('rep-cl');
+    let ppl=DB.people;if(cls)ppl=ppl.filter(p=>p.cls===cls);return ppl.map(p=>p.name);
+  },'');
+}
+function submitRep(){
+  const rid=v('rep-rm'),type=document.querySelector('input[name=rt]:checked')?.value;
+  const cls=v('rep-cl'),name=document.getElementById('rep-nm')?.value?.trim();
+  if(!rid||!type||!cls||!name){showT('請填寫所有欄位','tw2');return;}
+  const detail=type==='其他'?(document.getElementById('rep-dt')?.value||''):'';
+  const rm=DB.rooms.find(r=>r.id===rid);
+  if(rm&&type!=='鑰匙遺失'){rm.status='rp';rm.issue=type;}
+  DB.repairs.unshift({id:++DB.ids.rep,room:rm?.name||rid,type,detail,reporter:name,cls,time:ts(),status:'待處理',note:''});
+  saveDB();closeM();renderRooms();renderStats();showT('報修申請已提交','ts');
+}
+
+/* ═══ PUB HISTORY ═══ */
+function popPHF(){
+  const sel=document.getElementById('ph-room');
+  const rooms=[...new Set(DB.history.map(h=>h.room))].sort();
+  sel.innerHTML='<option value="">所有琴房</option>'+rooms.map(r=>`<option value="${r}">${r}</option>`).join('');
+}
+function renderPubH(){
+  const q=document.getElementById('ph-q')?.value?.toLowerCase()||'';
+  const rf=v('ph-room');
+  let data=DB.history.filter(h=>h.returnTime);
+  if(rf)data=data.filter(h=>h.room===rf);
+  if(q)data=data.filter(h=>h.cls?.toLowerCase().includes(q)||h.name?.includes(q)||h.seatNo?.includes(q));
+  data.sort((a,b)=>b.returnTime.localeCompare(a.returnTime));
+  if(!data.length){document.getElementById('ph-tbl').innerHTML='<div style="padding:2rem;text-align:center;color:var(--mut)">無符合紀錄</div>';return;}
+  const rows=data.slice(0,120).map(h=>`<tr>
+    <td style="font-family:monospace;font-weight:500">${h.room}</td>
+    <td>${h.cls}</td>
+    <td style="font-family:monospace;color:var(--AC);text-align:center">${h.seatNo||'—'}</td>
+    <td>${h.name}</td>
+    <td><span style="font-size:12px;color:var(--mut)">${h.reason||'—'}</span></td>
+    <td style="font-size:12px;white-space:nowrap">${fmtDate(h.borrowTime)}</td>
+    <td style="font-size:12px;white-space:nowrap">${fmtDate(h.returnTime)}</td></tr>`).join('');
+  document.getElementById('ph-tbl').innerHTML=`<table><thead><tr><th>琴房</th><th>班級</th><th>座號</th><th>姓名</th><th>原因</th><th>借出時間</th><th>歸還時間</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+function vPhoto(id){
+  const h=DB.history.find(x=>x.id==id);if(!h||!h.photo)return;
+  showM(`<div class="mt">📷 ${h.room} — ${h.cls} ${h.name}</div>
+    <img src="${h.photo}" class="photo-modal-img">
+    <div style="font-size:12px;color:var(--mut);text-align:center;margin-top:.5rem">${fmtDate(h.returnTime)}</div>
+    <div class="ma"><button class="btn btn-o" onclick="closeM()">關閉</button></div>`);
+}
+
+/* ═══ ADMIN NAV ═══ */
+function aN(p){
+  document.querySelectorAll('.si[id^=nav-]').forEach(i=>i.classList.remove('active'));
+  const n=document.getElementById('nav-'+p);if(n)n.classList.add('active');
+  document.querySelectorAll('.ap').forEach(x=>x.classList.remove('active'));
+  const pg=document.getElementById('adm-'+p);if(pg)pg.classList.add('active');
+  if(p==='people')renderPplTbl();
+  if(p==='rooms')renderRMgmt();
+  if(p==='hist'){popAHF();renderAdmH();}
+  if(p==='repairs')renderRepTbl();
+  if(p==='rtypes')renderRTypes();
+  if(p==='notice'){const t=document.getElementById('notice-text');if(t)t.value=DB.notice||'';}
+  if(p==='accts')renderAccts();
+}
+function renderAllAdm(){renderPplTbl();renderRMgmt();popAHF();renderAdmH();renderRepTbl();renderRTypes();renderAccts();const t=document.getElementById('notice-text');if(t)t.value=DB.notice||'';}
+
+/* ═══ PEOPLE ═══ */
+function renderPplTbl(){
+  const byClass={};
+  DB.clsList.forEach(c=>{byClass[c]=[];});
+  DB.people.forEach(p=>{if(!byClass[p.cls])byClass[p.cls]=[];byClass[p.cls].push(p);});
+  // sort by seat number within each class
+  Object.values(byClass).forEach(arr=>arr.sort((a,b)=>(a.seatNo||'').localeCompare(b.seatNo||'')));
+  let html='';
+  DB.clsList.forEach(cls=>{
+    const ppl=byClass[cls]||[];
+    html+=`<tr style="background:var(--bg)"><td colspan="5" style="font-weight:500;padding:6px 12px">
+      ${cls}
+      <button class="btn btn-o btn-xs" style="margin-left:8px" onclick="openRnCls('${cls}')">✏ 改名</button>
+      <button class="btn btn-d btn-xs" style="margin-left:4px" onclick="delCls('${cls}')">刪除班級</button>
+    </td></tr>`;
+    ppl.forEach(p=>{
+      const otherCls=DB.clsList.filter(c=>c!==cls).map(c=>`<option value="${c}">${c}</option>`).join('');
+      html+=`<tr draggable="true" data-pid="${p.id}" data-cls="${cls}"
+        ondragstart="pdragS(event)" ondragover="event.preventDefault()" ondrop="pdragD(event,'${cls}')">
+        <td style="padding-left:2rem;cursor:grab;font-family:monospace;font-weight:500;color:var(--AC)">⠿ ${p.seatNo||'—'}</td>
+        <td style="font-weight:500">${p.name}</td>
+        <td>
+          <select style="width:110px;font-size:12px;padding:3px 6px" onchange="movePerson(${p.id},this.value)" title="調整所屬班級">
+            <option value="">移至班級...</option>${otherCls}
+          </select>
+        </td>
+        <td><button class="btn btn-o btn-xs" onclick="openEdPerson(${p.id})">✏ 編輯</button></td>
+        <td><button class="btn btn-d btn-xs" onclick="delPerson(${p.id})">刪除</button></td>
+      </tr>`;
+    });
+  });
+  document.getElementById('ppl-tbl').innerHTML=
+    `<table><thead><tr><th>座號</th><th>姓名</th><th>移動班級</th><th></th><th></th></tr></thead><tbody>${html||'<tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--mut)">尚無資料</td></tr>'}</tbody></table>`;
+}
+let pdragPid=null,pdragSrcCls=null;
+function pdragS(e){pdragPid=e.currentTarget.dataset.pid;pdragSrcCls=e.currentTarget.dataset.cls;e.currentTarget.classList.add('dg-src');}
+function pdragD(e,targetCls){
+  e.preventDefault();
+  document.querySelectorAll('tr.dg-src').forEach(r=>r.classList.remove('dg-src'));
+  if(!pdragPid)return;
+  const p=DB.people.find(x=>x.id==pdragPid);
+  if(p&&p.cls!==targetCls){p.cls=targetCls;saveDB();renderPplTbl();showT(`已移至 ${targetCls}`,'ti');}
+  pdragPid=null;
+}
+function movePerson(id,cls){
+  if(!cls)return;const p=DB.people.find(x=>x.id===id);if(!p)return;
+  p.cls=cls;saveDB();renderPplTbl();showT(`已移至 ${cls}`,'ti');
+}
+function openAddCls(){
+  showM(`<div class="mt">+ 新增班級</div>
+    <div class="fg"><label class="fl">班級名稱</label><input type="text" id="ncn" placeholder="例：501班"></div>
+    <div class="ma"><button class="btn btn-o" onclick="closeM()">取消</button><button class="btn btn-p" onclick="addCls()">確認</button></div>`);
+}
+function addCls(){const n=document.getElementById('ncn')?.value?.trim();if(!n||DB.clsList.includes(n)){showT(n?'已存在':'請輸入名稱','tw2');return;}DB.clsList.push(n);saveDB();closeM();renderPplTbl();showT('班級已新增','ts');}
+function openRnCls(old){
+  showM(`<div class="mt">✏ 修改班級名稱</div>
+    <div class="fg"><label class="fl">新名稱</label><input type="text" id="rcn" value="${old}"></div>
+    <div class="ma"><button class="btn btn-o" onclick="closeM()">取消</button><button class="btn btn-p" onclick="rnCls('${old}')">確認</button></div>`);
+}
+function rnCls(old){
+  const n=document.getElementById('rcn')?.value?.trim();if(!n||n===old){closeM();return;}
+  if(DB.clsList.includes(n)){showT('名稱已存在','tw2');return;}
+  DB.clsList[DB.clsList.indexOf(old)]=n;
+  DB.people.forEach(p=>{if(p.cls===old)p.cls=n;});
+  DB.history.forEach(h=>{if(h.cls===old)h.cls=n;});
+  DB.rooms.forEach(r=>{if(r.borrower?.cls===old)r.borrower.cls=n;});
+  saveDB();closeM();renderPplTbl();showT(`已改名為「${n}」`,'ts');
+}
+function delCls(cls){
+  const cnt=DB.people.filter(p=>p.cls===cls).length;
+  if(!confirm(`確認刪除班級「${cls}」（含 ${cnt} 位人員）？`))return;
+  DB.clsList=DB.clsList.filter(c=>c!==cls);
+  DB.people=DB.people.filter(p=>p.cls!==cls);
+  saveDB();renderPplTbl();showT('班級已刪除','ti');
+}
+function openAddPerson(){
+  const clsOpts=DB.clsList.map(c=>`<option value="${c}">${c}</option>`).join('');
+  showM(`<div class="mt">+ 新增人員</div>
+    <div class="fg"><label class="fl">班級</label><select id="apc"><option value="">請選...</option>${clsOpts}</select></div>
+    <div class="fg"><label class="fl">座號</label><input type="text" id="apsn" placeholder="例：01、02..." maxlength="4" style="font-family:monospace"></div>
+    <div class="fg"><label class="fl">姓名</label><input type="text" id="apn" placeholder="輸入姓名"></div>
+    <div class="ma"><button class="btn btn-o" onclick="closeM()">取消</button><button class="btn btn-p" onclick="addPerson()">確認</button></div>`);
+}
+function addPerson(){
+  const cls=v('apc'),sn=document.getElementById('apsn')?.value?.trim(),n=document.getElementById('apn')?.value?.trim();
+  if(!cls||!sn||!n){showT('請填寫所有欄位','tw2');return;}
+  const padded=sn.padStart(2,'0');
+  if(DB.people.find(p=>p.cls===cls&&p.seatNo===padded)){showT(`${cls} 座號 ${padded} 已存在`,'tw2');return;}
+  DB.people.push({id:++DB.ids.ppl,cls,seatNo:padded,name:n});
+  saveDB();closeM();renderPplTbl();showT(`已新增 ${cls} ${padded}號 ${n}`,'ts');
+}
+function openEdPerson(id){
+  const p=DB.people.find(x=>x.id===id);
+  showM(`<div class="mt">✏ 編輯人員（${p.cls}）</div>
+    <div class="fg"><label class="fl">座號</label><input type="text" id="esn" value="${p.seatNo||''}" maxlength="4" style="font-family:monospace"></div>
+    <div class="fg"><label class="fl">姓名</label><input type="text" id="rnp" value="${p.name}"></div>
+    <div class="ma"><button class="btn btn-o" onclick="closeM()">取消</button><button class="btn btn-p" onclick="edPerson(${id})">確認</button></div>`);
+}
+function edPerson(id){
+  const sn=document.getElementById('esn')?.value?.trim();
+  const n=document.getElementById('rnp')?.value?.trim();
+  if(!sn||!n){showT('請填寫所有欄位','tw2');return;}
+  const p=DB.people.find(x=>x.id===id);
+  const padded=sn.padStart(2,'0');
+  // check duplicate seat in same class (excluding self)
+  if(DB.people.find(x=>x.id!==id&&x.cls===p.cls&&x.seatNo===padded)){showT(`${p.cls} 座號 ${padded} 已存在`,'tw2');return;}
+  p.seatNo=padded;p.name=n;
+  saveDB();closeM();renderPplTbl();showT('已更新','ts');
+}
+function delPerson(id){const p=DB.people.find(x=>x.id===id);if(!confirm(`確認刪除 ${p.cls} ${p.name}？`))return;DB.people=DB.people.filter(x=>x.id!==id);saveDB();renderPplTbl();showT('已刪除','ti');}
+function importCSV(){
+  const inp=document.createElement('input');inp.type='file';inp.accept='.csv,.txt';
+  inp.onchange=e=>{
+    const file=e.target.files[0];if(!file)return;
+    const reader=new FileReader();reader.onload=ev=>{
+      const lines=ev.target.result.split('\n').filter(l=>l.trim());let cnt=0;
+      lines.forEach(l=>{
+        const parts=l.split(',').map(s=>s.trim().replace(/"/g,''));
+        let cls,seatNo,name;
+        if(parts.length>=3){[cls,seatNo,name]=parts;}
+        else if(parts.length===2){[cls,name]=parts;seatNo='';}
+        if(cls&&name){
+          if(!DB.clsList.includes(cls))DB.clsList.push(cls);
+          const padded=seatNo?seatNo.padStart(2,'0'):'00';
+          if(!DB.people.find(p=>p.cls===cls&&p.seatNo===padded)){
+            DB.people.push({id:++DB.ids.ppl,cls,seatNo:padded,name});cnt++;
+          }
+        }
+      });
+      saveDB();renderPplTbl();showT(`已匯入 ${cnt} 筆名單`,'ts');};
+    reader.readAsText(file,'UTF-8');};inp.click();
+}
+
+/* ═══ ROOMS MGMT ═══ */
+let roomDragId=null;
+function renderRMgmt(){
+  let html='';
+  DB.floors.forEach(floor=>{
+    const rooms=DB.rooms.filter(r=>r.floor===floor).sort((a,b)=>(a.order||0)-(b.order||0));
+    html+=`<div style="margin-bottom:1.5rem">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:.75rem">
+        <span style="font-weight:500">${floor} 樓層</span>
+        <button class="btn btn-o btn-xs" onclick="openRnFloor('${floor}')">✏ 改名</button>
+        <button class="btn btn-d btn-xs" onclick="delFloor('${floor}')">刪除</button>
+      </div>
+      <div class="tc"><table><thead><tr><th style="width:36px"></th><th>名稱</th><th>狀態</th><th>禁止借用</th><th>操作</th></tr></thead><tbody>`;
+    rooms.forEach(r=>{
+      const sc=r.status==='av'?'bav':r.status==='bw'?'bbw':'brp';
+      const st=r.status==='av'?'可借用':r.status==='bw'?'借用中':'維修中';
+      html+=`<tr draggable="true" data-rid="${r.id}" data-fl="${floor}"
+        ondragstart="rdragS(event)" ondragover="rdragO(event)" ondrop="rdragD(event)" ondragend="rdragE(event)">
+        <td><span class="dh">⠿</span></td>
+        <td style="font-family:monospace;font-weight:500">${r.name}</td>
+        <td><span class="rb ${sc}">${st}</span></td>
+        <td><input type="checkbox" ${r.kd?'checked':''} onchange="toggleKD('${r.id}',this.checked)" style="width:16px;height:16px;accent-color:var(--R)"></td>
+        <td style="display:flex;gap:4px;flex-wrap:wrap">
+          <button class="btn btn-o btn-xs" onclick="openRnRoom('${r.id}')">✏</button>
+          ${r.status!=='rp'?`<button class="btn btn-w btn-xs" onclick="setRpair('${r.id}')">維修</button>`:''}
+          ${r.status==='rp'?`<button class="btn btn-xs" style="color:var(--G);border:1px solid var(--Gb);background:transparent" onclick="setAvail('${r.id}')">恢復</button>`:''}
+          <button class="btn btn-d btn-xs" onclick="delRoom('${r.id}')">刪除</button>
+        </td></tr>`;
+    });
+    html+=`</tbody></table></div></div>`;
+  });
+  document.getElementById('rmgmt').innerHTML=html;
+}
+function rdragS(e){roomDragId=e.currentTarget.dataset.rid;e.currentTarget.classList.add('dg-src');}
+function rdragO(e){e.preventDefault();document.querySelectorAll('tr.dg-over').forEach(r=>r.classList.remove('dg-over'));e.currentTarget.classList.add('dg-over');}
+function rdragE(e){e.currentTarget.classList.remove('dg-src');document.querySelectorAll('tr.dg-over').forEach(r=>r.classList.remove('dg-over'));}
+function rdragD(e){
+  e.preventDefault();const tid=e.currentTarget.dataset.rid;
+  if(!roomDragId||roomDragId===tid)return;
+  const s=DB.rooms.find(r=>r.id===roomDragId),t=DB.rooms.find(r=>r.id===tid);
+  if(!s||!t||s.floor!==t.floor)return;
+  const tmp=s.order;s.order=t.order;t.order=tmp;
+  saveDB();renderRMgmt();renderFT();renderRooms();
+}
+function openRnRoom(id){const r=DB.rooms.find(x=>x.id===id);showM(`<div class="mt">✏ 修改琴房名稱</div><div class="fg"><label class="fl">新名稱</label><input type="text" id="rrn" value="${r.name}"></div><div class="ma"><button class="btn btn-o" onclick="closeM()">取消</button><button class="btn btn-p" onclick="rnRoom('${id}')">確認</button></div>`);}
+function rnRoom(id){const r=DB.rooms.find(x=>x.id===id);const n=document.getElementById('rrn')?.value?.trim();if(!n)return;const old=r.name;r.name=n;DB.history.forEach(h=>{if(h.rid===id)h.room=n;});saveDB();closeM();renderRMgmt();renderRooms();}
+function toggleKD(id,val){const r=DB.rooms.find(x=>x.id===id);if(r){r.kd=val;saveDB();renderRooms();renderStats();showT(val?`${r.name} 禁止借用`:`${r.name} 已開放`,'ti');}}
+function openAddFloor(){showM(`<div class="mt">+ 新增樓層</div><div class="fg"><label class="fl">樓層名稱</label><input type="text" id="nfl" placeholder="例：3F"></div><div class="ma"><button class="btn btn-o" onclick="closeM()">取消</button><button class="btn btn-p" onclick="addFloor()">確認</button></div>`);}
+function addFloor(){const n=document.getElementById('nfl')?.value?.trim();if(!n||DB.floors.includes(n)){showT(n?'已存在':'請輸入名稱','tw2');return;}DB.floors.push(n);saveDB();closeM();renderRMgmt();renderFT();}
+function openRnFloor(f){showM(`<div class="mt">✏ 修改樓層名稱</div><div class="fg"><label class="fl">新名稱</label><input type="text" id="rfl" value="${f}"></div><div class="ma"><button class="btn btn-o" onclick="closeM()">取消</button><button class="btn btn-p" onclick="rnFloor('${f}')">確認</button></div>`);}
+function rnFloor(old){const n=document.getElementById('rfl')?.value?.trim();if(!n||n===old){closeM();return;}if(DB.floors.includes(n)){showT('已存在','tw2');return;}DB.floors[DB.floors.indexOf(old)]=n;DB.rooms.forEach(r=>{if(r.floor===old)r.floor=n;});if(CFL===old)CFL=n;saveDB();closeM();renderRMgmt();renderFT();renderRooms();}
+function delFloor(f){if(DB.rooms.filter(r=>r.floor===f).some(r=>r.status==='bw')){showT('有借用中琴房','tw2');return;}if(!confirm(`確認刪除樓層「${f}」？`))return;DB.floors=DB.floors.filter(x=>x!==f);DB.rooms=DB.rooms.filter(r=>r.floor!==f);if(CFL===f)CFL=DB.floors[0]||'';saveDB();renderRMgmt();renderFT();renderRooms();renderStats();}
+function openAddRoom(){showM(`<div class="mt">+ 新增琴房</div><div class="fg"><label class="fl">樓層</label><select id="arl">${DB.floors.map(f=>`<option value="${f}">${f}</option>`).join('')}</select></div><div class="fg"><label class="fl">琴房名稱</label><input type="text" id="arn" placeholder="例：106"></div><div class="ma"><button class="btn btn-o" onclick="closeM()">取消</button><button class="btn btn-p" onclick="addRoom()">確認</button></div>`);}
+function addRoom(){const fl=v('arl'),n=document.getElementById('arn')?.value?.trim();if(!n){showT('請輸入名稱','tw2');return;}const mx=Math.max(0,...DB.rooms.filter(r=>r.floor===fl).map(r=>r.order||0));DB.rooms.push({id:'r'+Date.now(),floor:fl,name:n,status:'av',kd:false,order:mx+1});saveDB();closeM();renderRMgmt();renderFT();renderRooms();renderStats();}
+function setRpair(id){const r=DB.rooms.find(x=>x.id===id);if(r.status==='bw'){showT('借用中','tw2');return;}r.status='rp';r.issue='人工標記維修';saveDB();renderRMgmt();renderRooms();renderStats();}
+function setAvail(id){const r=DB.rooms.find(x=>x.id===id);r.status='av';delete r.issue;saveDB();renderRMgmt();renderRooms();renderStats();}
+function delRoom(id){const r=DB.rooms.find(x=>x.id===id);if(r.status==='bw'){showT('借用中，無法刪除','tw2');return;}if(!confirm(`確認刪除「${r.name}」？`))return;DB.rooms=DB.rooms.filter(x=>x.id!==id);saveDB();renderRMgmt();renderFT();renderRooms();renderStats();}
+
+/* ═══ ADMIN HISTORY ═══ */
+function popAHF(){const sel=document.getElementById('ah-room');const rooms=[...new Set(DB.history.map(h=>h.room))].sort();sel.innerHTML='<option value="">所有琴房</option>'+rooms.map(r=>`<option value="${r}">${r}</option>`).join('');}
+function renderAdmH(){
+  const q=document.getElementById('ah-q')?.value?.toLowerCase()||'';
+  const rf=v('ah-room');
+  let data=[...DB.history];
+  if(rf)data=data.filter(h=>h.room===rf);
+  if(q)data=data.filter(h=>h.cls?.toLowerCase().includes(q)||h.name?.includes(q)||h.seatNo?.includes(q));
+  data.sort((a,b)=>(b.returnTime||b.borrowTime).localeCompare(a.returnTime||a.borrowTime));
+  if(!data.length){document.getElementById('ah-tbl').innerHTML='<div style="padding:2rem;text-align:center;color:var(--mut)">無符合紀錄</div>';return;}
+  const rows=data.slice(0,200).map(h=>`<tr>
+    <td style="font-family:monospace;font-weight:500">${h.room}</td>
+    <td>${h.cls}</td>
+    <td style="font-family:monospace;color:var(--AC);text-align:center">${h.seatNo||'—'}</td>
+    <td>${h.name}</td>
+    <td style="font-size:12px;color:var(--mut)">${h.reason||'—'}</td>
+    <td style="font-size:11px;white-space:nowrap">${fmtDate(h.borrowTime)}</td>
+    <td style="font-size:11px;white-space:nowrap">${h.returnTime?fmtDate(h.returnTime):'<span style="color:var(--R)">未歸還</span>'}</td>
+    <td>${h.photo
+      ?`<img src="${h.photo}" class="pt" onclick="vPhoto(${h.id})" title="點擊放大查看照片" style="cursor:zoom-in">`
+      :'<span style="font-size:11px;color:var(--mut)">無</span>'}</td>
+    <td><button class="btn btn-d btn-xs" onclick="delHist(${h.id})">刪除</button></td></tr>`).join('');
+  document.getElementById('ah-tbl').innerHTML=`<table><thead><tr><th>琴房</th><th>班級</th><th>座號</th><th>姓名</th><th>原因</th><th>借出</th><th>歸還</th><th>照片</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+function delHist(id){
+  if(!confirm('確認刪除此筆借還紀錄？此操作無法復原。'))return;
+  DB.history=DB.history.filter(h=>h.id!==id);
+  saveDB();popAHF();renderAdmH();showT('紀錄已刪除','ti');
+}
+
+/* ═══ REPAIRS ═══ */
+function renderRepTbl(){
+  const sf=v('rep-status-f');const q=document.getElementById('rep-q')?.value?.toLowerCase()||'';
+  let data=[...DB.repairs];
+  if(sf)data=data.filter(r=>r.status===sf);
+  if(q)data=data.filter(r=>r.room.toLowerCase().includes(q)||r.type.toLowerCase().includes(q));
+  data.sort((a,b)=>b.time.localeCompare(a.time));
+  if(!data.length){document.getElementById('rep-tbl').innerHTML='<div style="padding:2rem;text-align:center;color:var(--mut)">無符合紀錄</div>';return;}
+  const rows=data.map(r=>{
+    const sc=r.status==='待處理'?'bbw':r.status==='處理中'?'brp':'bav';
+    const states=['待處理','處理中','已完成'];const next=states[(states.indexOf(r.status)+1)%states.length];
+    return`<tr>
+      <td style="font-family:monospace">${r.room}</td>
+      <td>${r.type}</td>
+      <td style="font-size:11px;color:var(--mut)">${r.detail||'—'}</td>
+      <td>${r.cls} ${r.reporter}</td>
+      <td style="font-size:11px">${fmtDate(r.time)}</td>
+      <td><span class="rb ${sc}">${r.status}</span></td>
+      <td style="min-width:120px">
+        <input type="text" value="${r.note||''}" placeholder="處理說明..." style="font-size:12px;padding:4px 8px"
+          onchange="updateRepNote(${r.id},this.value)" style="width:120px">
+      </td>
+      <td><button class="btn btn-o btn-xs" onclick="cycleRep(${r.id})">→ ${next}</button></td></tr>`;
+  }).join('');
+  document.getElementById('rep-tbl').innerHTML=`<table><thead><tr><th>琴房</th><th>類型</th><th>說明</th><th>回報者</th><th>時間</th><th>狀態</th><th>處理說明</th><th>操作</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+function updateRepNote(id,note){const r=DB.repairs.find(x=>x.id===id);if(r){r.note=note;saveDB();}}
+function cycleRep(id){
+  const r=DB.repairs.find(x=>x.id===id);const s=['待處理','處理中','已完成'];
+  r.status=s[(s.indexOf(r.status)+1)%s.length];
+  if(r.status==='已完成'){const rm=DB.rooms.find(x=>x.name===r.room||x.id===r.room);if(rm&&rm.status==='rp'){rm.status='av';delete rm.issue;renderRooms();renderStats();}}
+  saveDB();renderRepTbl();showT(`已更新：${r.status}`,'ti');
+}
+
+/* ═══ REPAIR TYPES ═══ */
+function renderRTypes(){
+  const rows=DB.repairTypes.map((t,i)=>`<tr><td>${t}</td>
+    <td><button class="btn btn-o btn-xs" onclick="openEdRType(${i})">✏</button></td>
+    <td><button class="btn btn-d btn-xs" onclick="delRType(${i})">刪除</button></td></tr>`).join('');
+  document.getElementById('rt-tbl').innerHTML=`<table><thead><tr><th>類型名稱</th><th></th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+function openAddRType(){showM(`<div class="mt">+ 新增報修類型</div><div class="fg"><label class="fl">名稱</label><input type="text" id="nrt" placeholder="例：冷氣故障"></div><div class="ma"><button class="btn btn-o" onclick="closeM()">取消</button><button class="btn btn-p" onclick="addRType()">確認</button></div>`);}
+function addRType(){const n=document.getElementById('nrt')?.value?.trim();if(!n||DB.repairTypes.includes(n)){showT(n?'已存在':'請輸入','tw2');return;}DB.repairTypes.push(n);saveDB();closeM();renderRTypes();}
+function openEdRType(i){showM(`<div class="mt">✏ 修改報修類型</div><div class="fg"><label class="fl">名稱</label><input type="text" id="ert" value="${DB.repairTypes[i]}"></div><div class="ma"><button class="btn btn-o" onclick="closeM()">取消</button><button class="btn btn-p" onclick="edRType(${i})">確認</button></div>`);}
+function edRType(i){const n=document.getElementById('ert')?.value?.trim();if(!n){showT('請輸入','tw2');return;}DB.repairTypes[i]=n;saveDB();closeM();renderRTypes();}
+function delRType(i){if(!confirm(`確認刪除「${DB.repairTypes[i]}」？`))return;DB.repairTypes.splice(i,1);saveDB();renderRTypes();}
+
+/* ═══ NOTICE ═══ */
+function saveNotice(){DB.notice=document.getElementById('notice-text')?.value||'';saveDB();showNotice();showT('公告已儲存','ts');}
+
+/* ═══ ACCOUNTS ═══ */
+function renderAccts(){
+  const rows=DB.accounts.map((a,i)=>`<tr>
+    <td>${a.name}</td><td style="font-family:monospace">${a.u}</td>
+    <td><span class="badge ${a.role==='admin'?'b-adm':'b-rep'}">${a.role==='admin'?'管理員':'維修人員'}</span></td>
+    <td>${i===0?'<span style="font-size:11px;color:var(--mut)">主帳號</span>':`<button class="btn btn-d btn-xs" onclick="delAcct(${i})">刪除</button>`}</td>
+    <td><button class="btn btn-o btn-xs" onclick="openAdmResetPw(${i})">重置密碼</button></td></tr>`).join('');
+  document.getElementById('acct-tbl').innerHTML=`<table><thead><tr><th>姓名</th><th>帳號</th><th>角色</th><th></th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+function openAddAcct(){
+  showM(`<div class="mt">+ 新增帳號</div>
+    <div class="fg"><label class="fl">姓名</label><input type="text" id="nan" placeholder="例：李小明"></div>
+    <div class="fg"><label class="fl">帳號（登入用）</label><input type="text" id="nau" placeholder="帳號"></div>
+    <div class="fg"><label class="fl">密碼</label><input type="password" id="nap"></div>
+    <div class="fg"><label class="fl">角色</label><select id="nar"><option value="admin">管理員</option><option value="repair">維修人員</option></select></div>
+    <div class="ma"><button class="btn btn-o" onclick="closeM()">取消</button><button class="btn btn-p" onclick="addAcct()">確認</button></div>`);
+}
+function addAcct(){const name=document.getElementById('nan')?.value?.trim(),u=document.getElementById('nau')?.value?.trim(),p=document.getElementById('nap')?.value,role=v('nar');if(!name||!u||!p){showT('請填寫所有欄位','tw2');return;}if(DB.accounts.find(a=>a.u===u)){showT('帳號已存在','tw2');return;}DB.accounts.push({u,p,role,name});saveDB();closeM();renderAccts();showT('帳號已新增','ts');}
+function delAcct(i){if(!confirm(`確認刪除「${DB.accounts[i].name}」？`))return;DB.accounts.splice(i,1);saveDB();renderAccts();}
+function openAdmResetPw(i){
+  showM(`<div class="mt">🔑 重置密碼（${DB.accounts[i].name}）</div>
+    <div class="fg"><label class="fl">新密碼</label><input type="password" id="rpw" placeholder="輸入新密碼"></div>
+    <div class="ma"><button class="btn btn-o" onclick="closeM()">取消</button><button class="btn btn-p" onclick="admResetPw(${i})">確認重置</button></div>`);
+}
+function admResetPw(i){const p=document.getElementById('rpw')?.value;if(!p){showT('請輸入密碼','tw2');return;}DB.accounts[i].p=p;saveDB();closeM();showT(`${DB.accounts[i].name} 密碼已重置`,'ts');}
+function changeMyPw(){
+  const old=document.getElementById('cpw-old')?.value;
+  const n=document.getElementById('cpw-new')?.value;
+  const n2=document.getElementById('cpw-new2')?.value;
+  if(!CUser){showT('請先登入','tw2');return;}
+  const acct=DB.accounts.find(a=>a.u===CUser.u);
+  if(!acct||acct.p!==old){showT('目前密碼不正確','tw2');return;}
+  if(!n){showT('請輸入新密碼','tw2');return;}
+  if(n!==n2){showT('兩次密碼不一致','tw2');return;}
+  acct.p=n;CUser.p=n;saveDB();
+  document.getElementById('cpw-old').value='';document.getElementById('cpw-new').value='';document.getElementById('cpw-new2').value='';
+  showT('密碼已修改','ts');
+}
+
+/* ═══ UTILS ═══ */
+function v(id){return document.getElementById(id)?.value||'';}
+function nowT(){const d=new Date();return`${pad(d.getHours())}:${pad(d.getMinutes())}`;}
+function pad(n){return String(n).padStart(2,'0');}
+function showM(html,wide=false,extraClass=''){
+  closeM();stopCam();
+  const ov=document.createElement('div');ov.className='mo';ov.id='mroot';
+  const cls=['md',wide?'wide':'',extraClass].filter(Boolean).join(' ');
+  ov.innerHTML=`<div class="${cls}">${html}</div>`;
+  ov.addEventListener('click',e=>{if(e.target===ov)closeM();});
+  document.getElementById('modal-root').appendChild(ov);
+}
+function closeM(){stopCam();cp=null;const el=document.getElementById('mroot');if(el)el.remove();}
+function showT(msg,type='ti'){
+  const t=document.createElement('div');t.className=`toast ${type}`;t.textContent=msg;
+  document.body.appendChild(t);setTimeout(()=>t.remove(),3000);
+}
+
+/* ═══ INIT ═══ */
+// DB 先用本機資料初始化，Firebase 連線後自動覆蓋為最新雲端資料
+initFirebase();
+</script>
+</body>
+</html>
