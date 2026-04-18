@@ -65,9 +65,6 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--txt)
 .brp{background:var(--Al);color:var(--A);border-color:var(--Ab)}
 .bdk{background:#f0f0f0;color:#666;border-color:#ccc}
 .ri{font-size:11px;color:var(--mut);line-height:1.4;margin-top:2px}
-.sc{transition:all .15s}
-.sc:hover{box-shadow:var(--shm);transform:translateY(-1px)}
-.sc.active-filter{outline:2px solid currentColor}
 
 /* ── HISTORY PAGE ── */
 .hist-page{padding:1rem;height:100%;display:flex;flex-direction:column}
@@ -509,8 +506,6 @@ function defDB(){return{
 
 let DB=loadDB();
 let CFL=DB.floors[0]||'B1';
-window.CStatusFilter='';
-window.CFloorAll=false;
 let CUser=null;
 let vs=null,cp=null;
 let dragId=null;
@@ -530,7 +525,7 @@ function switchTab(t){
   document.getElementById('page-'+t).classList.add('active');
   const tabs=['borrow','hist'];const i=tabs.indexOf(t);
   if(i>=0)document.querySelectorAll('.tab-btn')[i].classList.add('active');
-  if(t==='borrow'){window.CStatusFilter='';showNotice();renderStats();renderFT();renderRooms();}
+  if(t==='borrow'){_statusFilter='';_showAllFloors=false;showNotice();renderStats();renderFT();renderRooms();}
   if(t==='hist'){popPHF();renderPubH();}
 }
 function openAdminLogin(){
@@ -570,102 +565,103 @@ function renderStats(){
   const bw=DB.rooms.filter(r=>r.status==='bw').length;
   const rp=DB.rooms.filter(r=>r.status==='rp').length;
   const dk=DB.rooms.filter(r=>r.kd).length;
-  const sf=window.CStatusFilter||'';
+  var avAct=_statusFilter==='av';var bwAct=_statusFilter==='bw';
+  var _av_sty='border:1.5px solid '+(avAct?'var(--G)':'var(--bdr)')+';box-shadow:'+(avAct?'0 0 0 2px rgba(45,106,79,.2)':'var(--sh)');
+  var _bw_sty='border:1.5px solid '+(bwAct?'var(--R)':'var(--bdr)')+';box-shadow:'+(bwAct?'0 0 0 2px rgba(163,50,50,.2)':'var(--sh)');
   document.getElementById('stats-row').innerHTML=
-    `<div class="sc" style="cursor:pointer;transition:all .15s;${sf==='av'?'outline:2px solid var(--G);':''}border-color:${sf==='av'?'var(--G)':'var(--bdr)'}" onclick="toggleStatusFilter('av')" title="點擊篩選可借用琴房">
-      <div class="sl">可借用 ${sf==='av'?'▼':''}</div><div class="sv g">${av}</div></div>
-     <div class="sc" style="cursor:pointer;transition:all .15s;${sf==='bw'?'outline:2px solid var(--R);':''}border-color:${sf==='bw'?'var(--R)':'var(--bdr)'}" onclick="toggleStatusFilter('bw')" title="點擊篩選借用中琴房">
-      <div class="sl">借用中 ${sf==='bw'?'▼':''}</div><div class="sv r">${bw}</div></div>
-     <div class="sc"><div class="sl">維修中</div><div class="sv a">${rp}</div></div>
-     <div class="sc"><div class="sl">禁止借用</div><div class="sv" style="color:#666">${dk}</div></div>`;
+    '<div class="sc" style="cursor:pointer;'+_av_sty+'" onclick="toggleSF(&quot;av&quot;)" title="點擊篩選可借用琴房">'+
+      '<div class="sl">可借用'+(avAct?' ▾':'')+' <small style="font-size:9px;opacity:.6">點擊篩選</small></div><div class="sv g">'+av+'</div></div>'+
+    '<div class="sc" style="cursor:pointer;'+_bw_sty+'" onclick="toggleSF(&quot;bw&quot;)" title="點擊篩選借用中琴房">'+
+      '<div class="sl">借用中'+(bwAct?' ▾':'')+' <small style="font-size:9px;opacity:.6">點擊篩選</small></div><div class="sv r">'+bw+'</div></div>'+
+    '<div class="sc"><div class="sl">維修中</div><div class="sv a">'+rp+'</div></div>'+
+    '<div class="sc"><div class="sl">禁止借用</div><div class="sv" style="color:#666">'+dk+'</div></div>';
 }
-function toggleStatusFilter(status){
-  if(window.CStatusFilter===status){window.CStatusFilter='';}else{window.CStatusFilter=status;}
-  renderStats();renderRooms();
-  const lbl=document.getElementById('floor-lbl');
-  if(lbl){
-    if(window.CStatusFilter==='av')lbl.textContent='篩選：可借用琴房';
-    else if(window.CStatusFilter==='bw')lbl.textContent='篩選：借用中琴房';
-    else lbl.textContent=(window.CFL||'')+(window.CFL?' 樓層':'');
-  }
+function toggleSF(status){
+  _statusFilter=(_statusFilter===status)?'':status;
+  _showAllFloors=false;
+  var lbl=document.getElementById('floor-lbl');
+  if(_statusFilter==='av'&&lbl)lbl.textContent='篩選：全部可借用琴房';
+  else if(_statusFilter==='bw'&&lbl)lbl.textContent='篩選：全部借用中琴房';
+  else if(lbl)lbl.textContent=CFL+' 樓層';
+  renderFT();renderStats();renderRooms();
 }
 
 /* ═══ FLOOR TABS ═══ */
-let CFloorAll=false; // true = show all floors
+var _showAllFloors=false;
+var _statusFilter='';
 function renderFT(){
-  const allBtn=`<button class="fb${CFloorAll?' active':''}" onclick="setFLAll(this)" style="font-size:13px;font-weight:600">全部</button>`;
-  document.getElementById('floor-tabs').innerHTML=allBtn+DB.floors.map(f=>
-    `<button class="fb${!CFloorAll&&f===CFL?' active':''}" onclick="setFL('${f}',this)">${f}</button>`).join('');
+  var allActive=_showAllFloors?' active':'';
+  var allBtn='<button class="fb'+allActive+'" onclick="setFLAll(this)" style="font-size:13px;letter-spacing:-.02em">全部</button>';
+  document.getElementById('floor-tabs').innerHTML=allBtn+DB.floors.map(f=>{
+    var act=(!_showAllFloors&&!_statusFilter&&f===CFL)?' active':'';
+    return '<button class="fb'+act+'" onclick="setFL(this,&quot;'+f+'&quot;)">'+f+'</button>';
+  }).join('');
 }
 function setFLAll(btn){
-  CFloorAll=true;window.CStatusFilter='';
+  _showAllFloors=true;_statusFilter='';
   document.querySelectorAll('.fb').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   document.getElementById('floor-lbl').textContent='全部樓層';
-  renderStats();renderRooms();
+  renderRooms();
 }
-function setFL(f,btn){
-  CFL=f;CFloorAll=false;window.CStatusFilter='';
+function setFL(btn,f){
+  CFL=f;_showAllFloors=false;_statusFilter='';
   document.querySelectorAll('.fb').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   document.getElementById('floor-lbl').textContent=f+' 樓層';
-  renderStats();renderRooms();
+  renderRooms();
 }
 
 /* ═══ ROOMS ═══ */
-function renderRooms(){
-  const sf=window.CStatusFilter||'';
-  let rooms;
-  if(sf==='av'){
-    // Show all available rooms across all floors
-    rooms=DB.rooms.filter(r=>r.status==='av'&&!r.kd).sort((a,b)=>{
-      if(a.floor!==b.floor)return DB.floors.indexOf(a.floor)-DB.floors.indexOf(b.floor);
-      return(a.order||0)-(b.order||0);
-    });
-  } else if(sf==='bw'){
-    // Show all borrowed rooms across all floors
-    rooms=DB.rooms.filter(r=>r.status==='bw').sort((a,b)=>{
-      if(a.floor!==b.floor)return DB.floors.indexOf(a.floor)-DB.floors.indexOf(b.floor);
-      return(a.order||0)-(b.order||0);
-    });
-  } else if(window.CFloorAll){
-    // Show all floors
-    rooms=DB.rooms.slice().sort((a,b)=>{
-      if(a.floor!==b.floor)return DB.floors.indexOf(a.floor)-DB.floors.indexOf(b.floor);
-      return(a.order||0)-(b.order||0);
-    });
-  } else {
-    rooms=DB.rooms.filter(r=>r.floor===CFL).sort((a,b)=>(a.order||0)-(b.order||0));
-  }
-  if(!rooms.length){
-    document.getElementById('rooms-grid').innerHTML='<div style="grid-column:1/-1;padding:2rem;text-align:center;color:var(--mut)">無符合條件的琴房</div>';
-    return;
-  }
-  // When showing all floors or status filter, group by floor
-  const grouped=(sf||window.CFloorAll);
-  let html='';
-  if(grouped){
-    const floorGroups={};
-    rooms.forEach(r=>{if(!floorGroups[r.floor])floorGroups[r.floor]=[];floorGroups[r.floor].push(r);});
-    DB.floors.forEach(floor=>{
-      if(!floorGroups[floor]||!floorGroups[floor].length)return;
-      html+=`<div style="grid-column:1/-1;font-size:11px;font-weight:600;color:var(--mut);text-transform:uppercase;letter-spacing:.08em;margin-top:.5rem;padding-top:.25rem;border-top:1px solid var(--bdr)">${floor} 樓層</div>`;
-      floorGroups[floor].forEach(r=>{ html+=buildRoomCard(r); });
-    });
-  } else {
-    rooms.forEach(r=>{ html+=buildRoomCard(r); });
-  }
-  document.getElementById('rooms-grid').innerHTML=html;
-}
-function buildRoomCard(r){
-  let cc=r.kd?'dk':r.status,badge='',info='';
+function _roomCard(r){
+  var cc=r.kd?'dk':r.status,badge='',info='';
   if(r.kd){badge='<div class="rb bdk">🚫 禁止借用</div>';}
   else if(r.status==='av'){badge='<div class="rb bav">✓ 可借用</div>';}
   else if(r.status==='bw'){
     badge='<div class="rb bbw">● 借用中</div>';
     info='<div class="ri">'+r.borrower.cls+'<br>'+(r.borrower.seatNo||'')+'號 '+r.borrower.name+'<br>自 '+r.borrower.time+' 起<br><span style="color:var(--AC);font-size:10px">'+(r.borrower.reason||'')+'</span></div>';
   }else{badge='<div class="rb brp">⚠ 維修中</div>';info='<div class="ri">'+(r.issue||'')+'</div>';}
-  return '<div class="rc '+cc+'" onclick="openRM(''+r.id+'')"><div class="rn">'+r.name+'</div>'+badge+info+'</div>';
+  return '<div class="rc '+cc+'" onclick="openRM(&quot;'+r.id+'&quot;)"><div class="rn">'+r.name+'</div>'+badge+info+'</div>';
+}
+function renderRooms(){
+  var grid=document.getElementById('rooms-grid');
+  var rooms;
+  if(_statusFilter==='av'){
+    rooms=DB.rooms.filter(r=>r.status==='av'&&!r.kd).slice().sort((a,b)=>{
+      var fi=DB.floors.indexOf(a.floor)-DB.floors.indexOf(b.floor);
+      return fi!==0?fi:(a.order||0)-(b.order||0);
+    });
+  } else if(_statusFilter==='bw'){
+    rooms=DB.rooms.filter(r=>r.status==='bw').slice().sort((a,b)=>{
+      var fi=DB.floors.indexOf(a.floor)-DB.floors.indexOf(b.floor);
+      return fi!==0?fi:(a.order||0)-(b.order||0);
+    });
+  } else if(_showAllFloors){
+    rooms=DB.rooms.slice().sort((a,b)=>{
+      var fi=DB.floors.indexOf(a.floor)-DB.floors.indexOf(b.floor);
+      return fi!==0?fi:(a.order||0)-(b.order||0);
+    });
+  } else {
+    rooms=DB.rooms.filter(r=>r.floor===CFL).sort((a,b)=>(a.order||0)-(b.order||0));
+  }
+  if(!rooms.length){
+    grid.innerHTML='<div style="grid-column:1/-1;padding:2rem;text-align:center;color:var(--mut)">無符合條件的琴房</div>';
+    return;
+  }
+  var useGroups=(_statusFilter||_showAllFloors);
+  if(useGroups){
+    var groups={};DB.floors.forEach(f=>{groups[f]=[];});
+    rooms.forEach(r=>{if(groups[r.floor])groups[r.floor].push(r);});
+    var html='';
+    DB.floors.forEach(floor=>{
+      if(!groups[floor]||!groups[floor].length)return;
+      html+='<div style="grid-column:1/-1;font-size:11px;font-weight:600;color:var(--mut);text-transform:uppercase;letter-spacing:.08em;padding:.3rem 0;margin-top:.3rem;border-top:1px solid var(--bdr)">'+floor+' 樓層</div>';
+      groups[floor].forEach(r=>{html+=_roomCard(r);});
+    });
+    grid.innerHTML=html;
+  } else {
+    grid.innerHTML=rooms.map(_roomCard).join('');
+  }
 }
 
 /* ═══ AUTOCOMPLETE helper ═══ */
@@ -912,13 +908,14 @@ function takePhoto(){
   c.getContext('2d').drawImage(v2,0,0);
   cp=c.toDataURL('image/jpeg',.82);
   stopCam();
-  const wrap=document.getElementById('camwrap');
-  if(wrap)wrap.innerHTML='<img src="'+cp+'" alt="歸還照片">';
-  const bsn=document.getElementById('bsn');if(bsn)bsn.style.display='none';
-  const brt=document.getElementById('brt');if(brt)brt.style.display='';
-  const bco=document.getElementById('bco');if(bco)bco.style.display='none';
-  const bcr=document.getElementById('bcr');if(bcr){bcr.disabled=false;bcr.removeAttribute('disabled');}
-  const cst=document.getElementById('cam-status');if(cst)cst.textContent='✅ 照片已拍攝，可確認歸還';
+  const _wrap=document.getElementById('camwrap');
+  if(_wrap)_wrap.innerHTML='<img src="'+cp+'" alt="歸還照片" style="width:100%;height:100%;object-fit:cover">';
+  const _bsn=document.getElementById('bsn');if(_bsn)_bsn.style.display='none';
+  const _brt=document.getElementById('brt');if(_brt)_brt.style.display='';
+  const _bco=document.getElementById('bco');if(_bco)_bco.style.display='none';
+  const _bcr=document.getElementById('bcr');
+  if(_bcr){_bcr.disabled=false;_bcr.removeAttribute('disabled');}
+  const _cst=document.getElementById('cam-status');if(_cst)_cst.textContent='✅ 照片已拍攝，可確認歸還';
 }
 function retake(){
   cp=null;
@@ -1041,23 +1038,22 @@ function renderAllAdm(){renderPplTbl();renderRMgmt();popAHF();renderAdmH();rende
 
 /* ═══ PEOPLE ═══ */
 function renderPplTbl(){
-  // Update class filter dropdown
-  const filterSel=document.getElementById('ppl-cls-filter');
-  if(filterSel){
-    const curFilter=filterSel.value;
-    filterSel.innerHTML='<option value="">全部班級</option>'+DB.clsList.map(c=>`<option value="${c}"${c===curFilter?' selected':''}>${c}</option>`).join('');
+  // Refresh class filter dropdown
+  var _fsel=document.getElementById('ppl-cls-filter');
+  if(_fsel){
+    var _cur=_fsel.value;
+    _fsel.innerHTML='<option value="">全部班級</option>'+DB.clsList.map(function(c){return'<option value="'+c+'"'+(c===_cur?' selected':'')+'>'+c+'</option>';}).join('');
   }
-  const filterCls=filterSel?filterSel.value:'';
-  const showCls=filterCls?[filterCls]:DB.clsList;
-
+  var _filterCls=_fsel?_fsel.value:'';
+  var showCls=_filterCls?[_filterCls]:DB.clsList;
   const byClass={};
   DB.clsList.forEach(c=>{byClass[c]=[];});
   DB.people.forEach(p=>{if(!byClass[p.cls])byClass[p.cls]=[];byClass[p.cls].push(p);});
   Object.values(byClass).forEach(arr=>arr.sort((a,b)=>(a.seatNo||'').localeCompare(b.seatNo||'')));
-  let html='';let totalCount=0;
+  let html='';let _total=0;
   showCls.forEach(cls=>{
     const ppl=byClass[cls]||[];
-    totalCount+=ppl.length;
+    _total+=ppl.length;
     html+=`<tr style="background:var(--bg)"><td colspan="5" style="font-weight:500;padding:6px 12px">
       ${cls} <span style="font-size:11px;color:var(--mut);font-weight:400">（${ppl.length}人）</span>
       <button class="btn btn-o btn-xs" style="margin-left:8px" onclick="openRnCls('${cls}')">✏ 改名</button>
@@ -1079,8 +1075,8 @@ function renderPplTbl(){
       </tr>`;
     });
   });
-  const countEl=document.getElementById('ppl-count');
-  if(countEl)countEl.textContent=filterCls?`共 ${totalCount} 人`:`全部 ${DB.people.length} 人`;
+  var _cntEl=document.getElementById('ppl-count');
+  if(_cntEl)_cntEl.textContent=_filterCls?'共 '+_total+' 人':'全部 '+DB.people.length+' 人';
   document.getElementById('ppl-tbl').innerHTML=
     `<table><thead><tr><th>座號</th><th>姓名</th><th>移動班級</th><th></th><th></th></tr></thead><tbody>${html||'<tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--mut)">尚無資料</td></tr>'}</tbody></table>`;
 }
@@ -1120,7 +1116,7 @@ function rnCls(old){
 }
 function delCls(cls){
   const cnt=DB.people.filter(p=>p.cls===cls).length;
-  if(!confirm(`確認刪除班級「${cls}」（含 ${cnt} 位人員）？`))return;
+  if(!confirm('確認刪除班級「'+cls+'」（含 '+cnt+' 位人員）？'))return;
   DB.clsList=DB.clsList.filter(c=>c!==cls);
   DB.people=DB.people.filter(p=>p.cls!==cls);
   saveDB();renderPplTbl();showT('班級已刪除','ti');
@@ -1243,8 +1239,8 @@ function setAvail(id){const r=DB.rooms.find(x=>x.id===id);r.status='av';delete r
 function clearBorrow(id){
   const r=DB.rooms.find(x=>x.id===id);
   if(!r||r.status!=='bw')return;
-  const msg='確認強制清除「'+r.name+'」的借用狀態？\n（'+(r.borrower?.cls||'')+' '+(r.borrower?.seatNo||'')+'號 '+(r.borrower?.name||'')+'）\n\n此操作無法復原，借用紀錄將標記為異常結束。';
-  if(!confirm(msg))return;
+  const _msg='確認強制清除「'+r.name+'」的借用狀態？\n（'+(r.borrower?.cls||'')+' '+(r.borrower?.seatNo||'')+'號 '+(r.borrower?.name||'')+'）\n\n此操作無法復原，借用紀錄將標記為異常結束。';
+  if(!confirm(_msg))return;
   const h=DB.history.find(x=>x.rid===id&&!x.returnTime);
   if(h){h.returnTime=ts();h.note='管理員強制清除';}
   r.status='av';delete r.borrower;
