@@ -462,7 +462,9 @@ function saveDB(){
   if(saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(()=>{
     if(fbRef && fbReady){
-      fbRef.set(DB).catch(err=>{
+      // Firebase 不接受 undefined，用 JSON 序列化再解析清除所有 undefined 欄位
+      const clean = JSON.parse(JSON.stringify(DB));
+      fbRef.set(clean).catch(err=>{
         console.warn('Firebase 寫入失敗', err);
         showT('⚠ 雲端同步失敗（已儲存本機）','tw2');
       });
