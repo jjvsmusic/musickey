@@ -397,21 +397,8 @@ function initFirebase(){
       if(raw){
         const d = raw;
         cleanOld(d); migratePeople(d); migrateBorrowReasons(d);
-        // 確保所有必要陣列欄位都存在，防止 undefined 錯誤
-        if(!Array.isArray(d.history))d.history=[];
-        if(!Array.isArray(d.repairs))d.repairs=[];
-        if(!Array.isArray(d.rooms))d.rooms=[];
-        if(!Array.isArray(d.floors))d.floors=[];
-        if(!Array.isArray(d.clsList))d.clsList=[];
-        if(!Array.isArray(d.people))d.people=[];
-        if(!Array.isArray(d.accounts))d.accounts=[];
-        if(!Array.isArray(d.repairTypes))d.repairTypes=[];
-        if(!Array.isArray(d.borrowReasons))d.borrowReasons=['上課開門','自主練習使用','其他'];
-        if(!d.ids)d.ids={h:100,rep:10,ppl:30};
-        if(d.ids.h==null)d.ids.h=100;
-        if(d.ids.rep==null)d.ids.rep=10;
-        if(d.ids.ppl==null)d.ids.ppl=30;
         DB = d;
+        ensureDB();
         // 同步本機備份
         try{ localStorage.setItem(SK, JSON.stringify(DB)); }catch(e){}
         // 更新畫面
@@ -420,16 +407,7 @@ function initFirebase(){
         if(document.getElementById('page-adm')?.classList.contains('active') && typeof renderAllAdm==='function'){ renderAllAdm(); }
       } else {
         // 雲端無資料（全新資料庫），確保 DB 有完整預設值
-        if(!Array.isArray(DB.history))DB.history=[];
-        if(!Array.isArray(DB.repairs))DB.repairs=[];
-        if(!Array.isArray(DB.rooms))DB.rooms=[];
-        if(!Array.isArray(DB.floors))DB.floors=[];
-        if(!Array.isArray(DB.clsList))DB.clsList=[];
-        if(!Array.isArray(DB.people))DB.people=[];
-        if(!Array.isArray(DB.accounts))DB.accounts=[];
-        if(!Array.isArray(DB.repairTypes))DB.repairTypes=[];
-        if(!Array.isArray(DB.borrowReasons))DB.borrowReasons=['上課開門','自主練習使用','其他'];
-        if(!DB.ids)DB.ids={h:100,rep:10,ppl:30};
+        ensureDB();
       }
       if(!fbReady){
         fbReady = true;
@@ -446,8 +424,27 @@ function initFirebase(){
   }
 }
 
+// 確保 DB 所有必要欄位都是正確型別，防止 undefined 錯誤
+function ensureDB(){
+  if(!Array.isArray(DB.history))DB.history=[];
+  if(!Array.isArray(DB.repairs))DB.repairs=[];
+  if(!Array.isArray(DB.rooms))DB.rooms=[];
+  if(!Array.isArray(DB.floors))DB.floors=[];
+  if(!Array.isArray(DB.clsList))DB.clsList=[];
+  if(!Array.isArray(DB.people))DB.people=[];
+  if(!Array.isArray(DB.accounts))DB.accounts=[{u:'王國霖',p:'000',role:'admin',name:'王國霖'}];
+  if(!Array.isArray(DB.repairTypes))DB.repairTypes=['鑰匙遺失','門鎖損壞','琴鍵故障','環境問題（冷氣、燈光等）','其他'];
+  if(!Array.isArray(DB.borrowReasons))DB.borrowReasons=['上課開門','自主練習使用','其他'];
+  if(!DB.ids||typeof DB.ids!=='object')DB.ids={h:100,rep:10,ppl:30};
+  if(DB.ids.h==null)DB.ids.h=100;
+  if(DB.ids.rep==null)DB.ids.rep=10;
+  if(DB.ids.ppl==null)DB.ids.ppl=30;
+  if(DB.notice==null)DB.notice='';
+}
+
 function fallbackLoad(){
   try{const d=JSON.parse(localStorage.getItem(SK)||'null');if(d){cleanOld(d);migratePeople(d);migrateBorrowReasons(d);DB=d;}}catch(e){}
+  ensureDB();
   fbReady = true;
   showNotice(); renderStats(); renderFT(); renderRooms();
 }
@@ -1040,12 +1037,14 @@ function submitRep(){
 /* ═══ PUB HISTORY ═══ */
 function popPHF(){
   const sel=document.getElementById('ph-room');
+  if(!Array.isArray(DB.history))DB.history=[];
   const rooms=[...new Set(DB.history.map(h=>h.room))].sort();
   sel.innerHTML='<option value="">所有琴房</option>'+rooms.map(r=>`<option value="${r}">${r}</option>`).join('');
 }
 function renderPubH(){
   const q=document.getElementById('ph-q')?.value?.toLowerCase()||'';
   const rf=v('ph-room');
+  if(!Array.isArray(DB.history))DB.history=[];
   let data=DB.history.filter(h=>h.returnTime);
   if(rf)data=data.filter(h=>h.room===rf);
   if(q)data=data.filter(h=>h.cls?.toLowerCase().includes(q)||h.name?.includes(q)||h.seatNo?.includes(q));
@@ -1066,6 +1065,7 @@ function renderPubH(){
   document.getElementById('ph-tbl').innerHTML=`<table><thead><tr><th>琴房</th><th>班級</th><th>座號</th><th>借用者</th><th>原因</th><th>借出時間</th><th>歸還時間</th><th>歸還者</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 function vPhoto(id){
+  if(!Array.isArray(DB.history))DB.history=[];
   const h=DB.history.find(x=>x.id==id);if(!h||!h.photo)return;
   showM(`<div class="mt">📷 ${h.room} — ${h.cls} ${h.name}</div>
     <img src="${h.photo}" class="photo-modal-img">
@@ -1299,6 +1299,7 @@ function clearBorrow(id){
   if(!r||r.status!=='bw')return;
   const _msg='確認強制清除「'+r.name+'」的借用狀態？\n（'+(r.borrower?.cls||'')+' '+(r.borrower?.seatNo||'')+'號 '+(r.borrower?.name||'')+'）\n\n此操作無法復原，借用紀錄將標記為異常結束。';
   if(!confirm(_msg))return;
+  if(!Array.isArray(DB.history))DB.history=[];
   const h=DB.history.find(x=>x.rid===id&&!x.returnTime);
   if(h){h.returnTime=ts();h.note='管理員強制清除';}
   r.status='av';delete r.borrower;
@@ -1307,10 +1308,11 @@ function clearBorrow(id){
 function delRoom(id){const r=DB.rooms.find(x=>x.id===id);if(r.status==='bw'){showT('借用中，無法刪除','tw2');return;}if(!confirm(`確認刪除「${r.name}」？`))return;DB.rooms=DB.rooms.filter(x=>x.id!==id);saveDB();renderRMgmt();renderFT();renderRooms();renderStats();}
 
 /* ═══ ADMIN HISTORY ═══ */
-function popAHF(){const sel=document.getElementById('ah-room');const rooms=[...new Set(DB.history.map(h=>h.room))].sort();sel.innerHTML='<option value="">所有琴房</option>'+rooms.map(r=>`<option value="${r}">${r}</option>`).join('');}
+function popAHF(){const sel=document.getElementById('ah-room');if(!sel)return;if(!Array.isArray(DB.history))DB.history=[];const rooms=[...new Set(DB.history.map(h=>h.room))].sort();sel.innerHTML='<option value="">所有琴房</option>'+rooms.map(r=>`<option value="${r}">${r}</option>`).join('');}
 function renderAdmH(){
   const q=document.getElementById('ah-q')?.value?.toLowerCase()||'';
   const rf=v('ah-room');
+  if(!Array.isArray(DB.history))DB.history=[];
   let data=[...DB.history];
   if(rf)data=data.filter(h=>h.room===rf);
   if(q)data=data.filter(h=>h.cls?.toLowerCase().includes(q)||h.name?.includes(q)||h.seatNo?.includes(q));
@@ -1337,6 +1339,7 @@ function renderAdmH(){
 }
 function delHist(id){
   if(!confirm('確認刪除此筆借還紀錄？此操作無法復原。'))return;
+  if(!Array.isArray(DB.history))DB.history=[];
   DB.history=DB.history.filter(h=>h.id!==id);
   saveDB();popAHF();renderAdmH();showT('紀錄已刪除','ti');
 }
@@ -1344,6 +1347,7 @@ function delHist(id){
 /* ═══ REPAIRS ═══ */
 function renderRepTbl(){
   const sf=v('rep-status-f');const q=document.getElementById('rep-q')?.value?.toLowerCase()||'';
+  if(!Array.isArray(DB.repairs))DB.repairs=[];
   let data=[...DB.repairs];
   if(sf)data=data.filter(r=>r.status===sf);
   if(q)data=data.filter(r=>r.room.toLowerCase().includes(q)||r.type.toLowerCase().includes(q));
