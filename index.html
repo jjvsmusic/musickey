@@ -397,6 +397,20 @@ function initFirebase(){
       if(raw){
         const d = raw;
         cleanOld(d); migratePeople(d); migrateBorrowReasons(d);
+        // 確保所有必要陣列欄位都存在，防止 undefined 錯誤
+        if(!Array.isArray(d.history))d.history=[];
+        if(!Array.isArray(d.repairs))d.repairs=[];
+        if(!Array.isArray(d.rooms))d.rooms=[];
+        if(!Array.isArray(d.floors))d.floors=[];
+        if(!Array.isArray(d.clsList))d.clsList=[];
+        if(!Array.isArray(d.people))d.people=[];
+        if(!Array.isArray(d.accounts))d.accounts=[];
+        if(!Array.isArray(d.repairTypes))d.repairTypes=[];
+        if(!Array.isArray(d.borrowReasons))d.borrowReasons=['上課開門','自主練習使用','其他'];
+        if(!d.ids)d.ids={h:100,rep:10,ppl:30};
+        if(d.ids.h==null)d.ids.h=100;
+        if(d.ids.rep==null)d.ids.rep=10;
+        if(d.ids.ppl==null)d.ids.ppl=30;
         DB = d;
         // 同步本機備份
         try{ localStorage.setItem(SK, JSON.stringify(DB)); }catch(e){}
@@ -404,6 +418,18 @@ function initFirebase(){
         showNotice(); renderStats(); renderFT(); renderRooms();
         if(document.getElementById('page-hist')?.classList.contains('active')){ popPHF(); renderPubH(); }
         if(document.getElementById('page-adm')?.classList.contains('active') && typeof renderAllAdm==='function'){ renderAllAdm(); }
+      } else {
+        // 雲端無資料（全新資料庫），確保 DB 有完整預設值
+        if(!Array.isArray(DB.history))DB.history=[];
+        if(!Array.isArray(DB.repairs))DB.repairs=[];
+        if(!Array.isArray(DB.rooms))DB.rooms=[];
+        if(!Array.isArray(DB.floors))DB.floors=[];
+        if(!Array.isArray(DB.clsList))DB.clsList=[];
+        if(!Array.isArray(DB.people))DB.people=[];
+        if(!Array.isArray(DB.accounts))DB.accounts=[];
+        if(!Array.isArray(DB.repairTypes))DB.repairTypes=[];
+        if(!Array.isArray(DB.borrowReasons))DB.borrowReasons=['上課開門','自主練習使用','其他'];
+        if(!DB.ids)DB.ids={h:100,rep:10,ppl:30};
       }
       if(!fbReady){
         fbReady = true;
@@ -844,6 +870,9 @@ function confBorrow(id){
   const rt=rsn==='其他'?(document.getElementById('br-ot')?.value?.trim()||'其他'):rsn;
   if(rsn==='其他'&&!document.getElementById('br-ot')?.value?.trim()){showT('請填寫其他原因','tw2');return;}
   const r=DB.rooms.find(x=>x.id===id);
+  if(!r){showT('找不到琴房資料','td2');return;}
+  if(!Array.isArray(DB.history))DB.history=[];
+  if(!DB.ids)DB.ids={h:100,rep:10,ppl:30};
   r.status='bw';r.borrower={cls,seatNo:padded,name:person.name,time:nowT(),reason:rt};
   DB.history.unshift({id:++DB.ids.h,room:r.name,rid:r.id,cls,seatNo:padded,name:person.name,borrowTime:ts(),returnTime:null,photo:null,reason:rt});
   nkReset('bn');
@@ -955,6 +984,9 @@ function confReturn(id){
   if(!person){showT(`${cls} 查無座號 ${padded}，無法歸還`,'td2');return;}
   if(!cp){showT('請先拍攝鑰匙照片','tw2');return;}
   const r=DB.rooms.find(x=>x.id===id);
+  if(!r){showT('找不到琴房資料','td2');return;}
+  if(!Array.isArray(DB.history))DB.history=[];
+  if(!DB.ids)DB.ids={h:100,rep:10,ppl:30};
   const h=DB.history.find(x=>x.rid===id&&!x.returnTime);
   const now=ts();
   if(h){h.returnTime=now;h.photo=cp;h.returner={cls,seatNo:padded,name:person.name};}
@@ -998,6 +1030,8 @@ function submitRep(){
   if(!rid||!type||!cls||!name){showT('請填寫所有欄位','tw2');return;}
   const detail=type==='其他'?(document.getElementById('rep-dt')?.value||''):'';
   const rm=DB.rooms.find(r=>r.id===rid);
+  if(!Array.isArray(DB.repairs))DB.repairs=[];
+  if(!DB.ids)DB.ids={h:100,rep:10,ppl:30};
   if(rm&&type!=='鑰匙遺失'){rm.status='rp';rm.issue=type;}
   DB.repairs.unshift({id:++DB.ids.rep,room:rm?.name||rid,type,detail,reporter:name,cls,time:ts(),status:'待處理',note:''});
   saveDB();closeM();renderRooms();renderStats();showT('報修申請已提交','ts');
