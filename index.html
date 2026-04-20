@@ -503,7 +503,7 @@ function migratePeople(d){
     });
   }
 }
-function ts(daysAgo=0){const n=new Date(Date.now()+daysAgo*864e5);return n.toISOString().replace('T',' ').slice(0,16);}
+function ts(daysAgo=0){const n=new Date(Date.now()+daysAgo*864e5);const yr=n.getFullYear(),mo=pad(n.getMonth()+1),dy=pad(n.getDate()),hh=pad(n.getHours()),mm=pad(n.getMinutes());return`${yr}-${mo}-${dy} ${hh}:${mm}`;}
 function defDB(){return{
   floors:['B1','1F','2F'],
   rooms:[
@@ -875,7 +875,17 @@ function confBorrow(id){
   r.status='bw';r.borrower={cls,seatNo:padded,name:person.name,time:nowT(),reason:rt};
   DB.history.unshift({id:++DB.ids.h,room:r.name,rid:r.id,cls,seatNo:padded,name:person.name,borrowTime:ts(),returnTime:null,photo:null,reason:rt});
   nkReset('bn');
-  saveDB();closeM();renderStats();renderRooms();showT(`${r.name} 借出 → ${cls} ${padded}號 ${person.name}（${rt}）`,'ts');
+  saveDB();renderStats();renderRooms();
+  closeM();
+  showM(`<div class="mt" style="text-align:center;font-size:18px;padding-bottom:.75rem">🔑 借用完成</div>
+    <div style="text-align:center;padding:.5rem 0 1rem">
+      <div style="font-size:15px;font-weight:500;color:var(--AC);margin-bottom:.5rem">${escHtml(r.name)}｜${escHtml(cls)} ${escHtml(padded)}號 ${escHtml(person.name)}</div>
+      <div style="background:var(--Gl);border:1px solid var(--Gb);border-radius:var(--r);padding:1rem 1.25rem;margin:.75rem 0;color:var(--G);font-size:14px;line-height:1.8">
+        📦 請至鑰匙存放處<strong>自取鑰匙</strong><br>
+        🚪 開完門後請<strong>立即歸還鑰匙</strong>
+      </div>
+    </div>
+    <div class="ma" style="justify-content:center"><button class="btn btn-p" onclick="closeM()" style="min-width:100px">我知道了</button></div>`);
 }
 
 /* ═══ RETURN MODAL ═══ */
@@ -991,7 +1001,16 @@ function confReturn(id){
   if(h){h.returnTime=now;h.photo=cp;h.returner={cls,seatNo:padded,name:person.name};}
   else DB.history.unshift({id:++DB.ids.h,room:r.name,rid:r.id,cls:r.borrower.cls,seatNo:r.borrower.seatNo,name:r.borrower.name,borrowTime:r.borrower.time,returnTime:now,photo:cp,reason:r.borrower.reason,returner:{cls,seatNo:padded,name:person.name}});
   r.status='av';delete r.borrower;cp=null;stopCam();nkReset('rn2');
-  saveDB();closeM();renderStats();renderRooms();showT(`${r.name} 歸還完成 ✓`,'ts');
+  saveDB();renderStats();renderRooms();
+  closeM();
+  showM(`<div class="mt" style="text-align:center;font-size:18px;padding-bottom:.75rem">✅ 手續完成</div>
+    <div style="text-align:center;padding:.5rem 0 1rem">
+      <div style="font-size:15px;font-weight:500;color:var(--G);margin-bottom:.5rem">${escHtml(r.name)} 歸還成功</div>
+      <div style="background:var(--Rl);border:1px solid var(--Rb);border-radius:var(--r);padding:1rem 1.25rem;margin:.75rem 0;color:var(--R);font-size:14px;line-height:1.8;font-weight:500">
+        🔑 請將鑰匙歸還至鑰匙存放處
+      </div>
+    </div>
+    <div class="ma" style="justify-content:center"><button class="btn btn-s" onclick="closeM()" style="min-width:100px">完成</button></div>`);
 }
 
 /* ═══ REPAIR MODAL ═══ */
