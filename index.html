@@ -267,6 +267,7 @@ tr.dg-src{opacity:.35}
       <div class="si" id="nav-breasons" onclick="aN('breasons')">🔑 借用原因</div>
       <div class="si" id="nav-notice" onclick="aN('notice')">📢 公告說明</div>
       <div class="si" id="nav-accts" onclick="aN('accts')">🔐 帳號管理</div>
+      <div class="si" id="nav-locks" onclick="aN('locks')">🔒 門鎖控制</div>
     </div>
     <div class="dvd" style="margin:.5rem 0"></div>
     <div class="si" id="nav-mypw" onclick="aN('mypw')">🔑 修改密碼</div>
@@ -345,6 +346,23 @@ tr.dg-src{opacity:.35}
       <div class="tb"><h2>🔐 帳號管理</h2><button class="btn btn-p btn-sm" onclick="openAddAcct()">+ 新增帳號</button></div>
       <div class="tc"><div class="tw" id="acct-tbl"></div></div>
     </div>
+    <div id="adm-locks" class="ap">
+      <div class="tb">
+        <h2>🔒 門鎖控制</h2>
+        <div class="ta" style="flex-wrap:wrap;gap:6px">
+          <button class="btn btn-o btn-sm" onclick="lockSelectAll()">☑ 全選</button>
+          <button class="btn btn-o btn-sm" onclick="lockSelectNone()">☐ 取消全選</button>
+          <button class="btn btn-p btn-sm" onclick="lockBatchSelected('unlock')">🔓 解鎖選取</button>
+          <button class="btn btn-d btn-sm" onclick="lockBatchSelected('lock')">🔒 上鎖選取</button>
+          <button class="btn btn-s btn-sm" onclick="lockBatchAction('unlock')">🔓 全部解鎖</button>
+          <button class="btn btn-d btn-sm" onclick="lockBatchAction('lock')">🔒 全部上鎖</button>
+        </div>
+      </div>
+      <div class="alert aw" style="font-size:12px;margin-bottom:1rem">
+        ⚠️ 遠端控制需要門鎖為 Online 狀態。藍牙鎖需在網關範圍內才能操作，Offline 的鎖操作可能失敗。
+      </div>
+      <div id="lock-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px"></div>
+    </div>
     <div id="adm-mypw" class="ap">
       <div class="tb"><h2>🔑 修改我的密碼</h2></div>
       <div style="max-width:360px">
@@ -364,6 +382,7 @@ tr.dg-src{opacity:.35}
 <!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-functions-compat.js"></script>
 
 <script>
 /* ═══ FIREBASE CONFIG — 請填入你的設定 ═══ */
@@ -1108,6 +1127,7 @@ function aN(p){
   if(p==='breasons')renderBRsn();
   if(p==='notice'){const t=document.getElementById('notice-text');if(t)t.value=DB.notice||'';}
   if(p==='accts')renderAccts();
+  if(p==='locks')renderLockGrid();
 }
 function renderAllAdm(){renderPplTbl();renderRMgmt();popAHF();renderAdmH();renderRepTbl();renderRTypes();renderBRsn();renderAccts();const t=document.getElementById('notice-text');if(t)t.value=DB.notice||'';}
 
@@ -1523,6 +1543,137 @@ function closeM(){stopCam();cp=null;const el=document.getElementById('mroot');if
 function showT(msg,type='ti'){
   const t=document.createElement('div');t.className=`toast ${type}`;t.textContent=msg;
   document.body.appendChild(t);setTimeout(()=>t.remove(),3000);
+}
+
+/* ═══ 門鎖控制 ═══ */
+const LOCKS = [
+  { id: '210錄音室',  name: '210 錄音室',  status: 'online' },
+  { id: '209展演廳',  name: '209 展演廳',  status: 'online' },
+  { id: '多功能',     name: '多功能',       status: 'online' },
+  { id: '106',        name: '106',          status: 'online' },
+  { id: '105',        name: '105',          status: 'online' },
+  { id: '104',        name: '104',          status: 'online' },
+  { id: 'B1排練教室', name: 'B1 排練教室', status: 'online' },
+  { id: '演一莊',     name: '演一莊',       status: 'online' },
+  { id: '104單',      name: '104單',        status: 'online' },
+  { id: '211',        name: '211',          status: 'online' },
+  { id: '音一莊',     name: '音一莊',       status: 'online' },
+  { id: '室內樂教室', name: '室內樂教室',  status: 'online' },
+  { id: 'B1樂團',     name: 'B1 樂團',     status: 'online' },
+  { id: '212新',      name: '212新',        status: 'online' },
+  { id: '102',        name: '102',          status: 'offline' },
+  { id: '211單間',    name: '211 單間',    status: 'offline' },
+  { id: '音二莊',     name: '音二莊',       status: 'offline' },
+  { id: '音三莊',     name: '音三莊',       status: 'offline' },
+  { id: '102單間',    name: '102 單間',    status: 'offline' },
+  { id: '212單',      name: '212單',        status: 'offline' },
+  { id: '101單間',    name: '101 單間',    status: 'offline' },
+  { id: '101',        name: '101',          status: 'offline' },
+];
+
+function renderLockGrid() {
+  const grid = document.getElementById('lock-grid');
+  if (!grid) return;
+  grid.innerHTML = LOCKS.map(lock => `
+    <div style="background:var(--sur);border:1.5px solid var(--bdr);border-radius:var(--rl);padding:.875rem;position:relative;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+        <input type="checkbox" id="chk-${lock.id}" style="width:16px;height:16px;accent-color:var(--AC);flex-shrink:0">
+        <span style="font-size:15px;font-weight:700;font-family:'IBM Plex Mono',monospace;flex:1">${lock.name}</span>
+        <span style="font-size:11px;padding:2px 7px;border-radius:20px;font-weight:500;white-space:nowrap;
+          ${lock.status==='online'
+            ? 'background:var(--Gl);color:var(--G);border:1px solid var(--Gb)'
+            : 'background:#f0f0f0;color:#888;border:1px solid #ddd'}">
+          ${lock.status==='online' ? '● Online' : '○ Offline'}
+        </span>
+      </div>
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-s btn-sm" style="flex:1;font-size:12px" onclick="singleLockAction('${lock.id}','unlock')">🔓 解鎖</button>
+        <button class="btn btn-d btn-sm" style="flex:1;font-size:12px" onclick="singleLockAction('${lock.id}','lock')">🔒 上鎖</button>
+      </div>
+      <div id="lock-msg-${lock.id}" style="font-size:11px;color:var(--mut);margin-top:5px;min-height:15px;text-align:center;"></div>
+    </div>
+  `).join('');
+}
+
+function setLockMsg(lockId, msg, color) {
+  const el = document.getElementById('lock-msg-' + lockId);
+  if (el) { el.textContent = msg; el.style.color = color || 'var(--mut)'; }
+}
+
+async function callLockFn(fnName, lockId) {
+  const fn = firebase.functions().httpsCallable(fnName);
+  const result = await fn({ lockId });
+  return result.data;
+}
+
+async function singleLockAction(lockId, action) {
+  const fnName = action === 'unlock' ? 'manualUnlock' : 'manualLock';
+  const label = action === 'unlock' ? '解鎖' : '上鎖';
+  setLockMsg(lockId, '處理中...', 'var(--A)');
+  try {
+    await callLockFn(fnName, lockId);
+    setLockMsg(lockId, '✓ ' + label + '成功', 'var(--G)');
+    showT(lockId + ' ' + label + '成功', 'ts');
+  } catch (err) {
+    setLockMsg(lockId, '✗ 操作失敗', 'var(--R)');
+    showT(lockId + ' ' + label + '失敗', 'td2');
+    console.error(err);
+  }
+}
+
+async function lockBatchAction(action) {
+  const label = action === 'unlock' ? '解鎖' : '上鎖';
+  if (!confirm('確認要對全部 ' + LOCKS.length + ' 個門鎖執行「' + label + '」？')) return;
+  showT('正在' + label + '全部門鎖...', 'ti');
+  let ok = 0, fail = 0;
+  for (const lock of LOCKS) {
+    try {
+      await callLockFn(action === 'unlock' ? 'manualUnlock' : 'manualLock', lock.id);
+      setLockMsg(lock.id, '✓ ' + label + '成功', 'var(--G)');
+      ok++;
+    } catch (e) {
+      setLockMsg(lock.id, '✗ 失敗', 'var(--R)');
+      fail++;
+    }
+  }
+  showT('完成：' + ok + ' 成功，' + fail + ' 失敗', ok > 0 ? 'ts' : 'td2');
+}
+
+function lockSelectAll() {
+  LOCKS.forEach(lock => {
+    const chk = document.getElementById('chk-' + lock.id);
+    if (chk) chk.checked = true;
+  });
+}
+
+function lockSelectNone() {
+  LOCKS.forEach(lock => {
+    const chk = document.getElementById('chk-' + lock.id);
+    if (chk) chk.checked = false;
+  });
+}
+
+async function lockBatchSelected(action) {
+  const selected = LOCKS.filter(lock => {
+    const chk = document.getElementById('chk-' + lock.id);
+    return chk && chk.checked;
+  });
+  if (!selected.length) { showT('請先勾選門鎖', 'tw2'); return; }
+  const label = action === 'unlock' ? '解鎖' : '上鎖';
+  if (!confirm('確認要對 ' + selected.length + ' 個門鎖執行「' + label + '」？')) return;
+  showT('正在處理 ' + selected.length + ' 個門鎖...', 'ti');
+  let ok = 0, fail = 0;
+  for (const lock of selected) {
+    try {
+      await callLockFn(action === 'unlock' ? 'manualUnlock' : 'manualLock', lock.id);
+      setLockMsg(lock.id, '✓ ' + label + '成功', 'var(--G)');
+      ok++;
+    } catch (e) {
+      setLockMsg(lock.id, '✗ 失敗', 'var(--R)');
+      fail++;
+    }
+  }
+  showT('完成：' + ok + ' 成功，' + fail + ' 失敗', ok > 0 ? 'ts' : 'td2');
 }
 
 /* ═══ INIT ═══ */
