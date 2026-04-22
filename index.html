@@ -369,7 +369,7 @@ tr.dg-src{opacity:.35}
       </div>
       <div id="lock-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px"></div>
     </div>
-    <div id="adm-mypw" class="ap">
+        <div id="adm-mypw" class="ap">
       <div class="tb"><h2>🔑 修改我的密碼</h2></div>
       <div style="max-width:360px">
         <div class="fg"><label class="fl">目前密碼</label><input type="password" id="cpw-old"></div>
@@ -818,6 +818,7 @@ function openBM(r){
         '</div>'+
         '<div class="fg" id="br-ob" style="display:none"><label class="fl">其他原因說明</label>'+
           '<input type="text" id="br-ot" placeholder="請說明借用原因..."></div>'+
+      '</div>'+
       '<div>'+
         '<label class="fl">拍攝借用照片（必填）<span style="color:var(--R)">★</span></label>'+
         '<div class="cam-wrap" id="camwrap-b" style="margin-top:.3rem">'+
@@ -916,21 +917,69 @@ function confBorrow(id){
   nkReset('bn');
   saveDB();renderStats();renderRooms();
   closeM();
-  // 呼叫 Firebase Function 取得臨時密碼
-  showM(`<div class="mt" style="text-align:center;font-size:18px;padding-bottom:.75rem">🔑 借用登記中...</div>
-    <div style="text-align:center;padding:1rem;color:var(--mut)">正在取得門鎖密碼，請稍候...</div>`);
+  // 房間名稱對應 Firebase lockId（含多道門設定）
+  const ROOM_TO_LOCK = {
+    '樂團教室':      [{label:'B1樂團門', id:'B1樂團'}],
+    '排練教室':      [{label:'B1排練教室門', id:'B1排練教室'}],
+    '101':           [{label:'外門 (101)', id:'101'}, {label:'單間門 (101單間)', id:'101單間'}],
+    '102':           [{label:'外門 (102)', id:'102'}, {label:'單間門 (102單間)', id:'102單間'}],
+    '104':           [{label:'外門 (104)', id:'104'}, {label:'單間門 (104單)', id:'104單'}],
+    '105室內樂教室': [{label:'105室內樂教室門', id:'105'}],
+    '二樓遙控器':    [{label:'室內樂教室門', id:'室內樂教室'}],
+    '106':           [{label:'106門', id:'106'}],
+    '209展演廳':     [{label:'209展演廳門', id:'209展演廳'}],
+    '210錄音室':     [{label:'210錄音室門', id:'210錄音室'}],
+    '211':           [{label:'外門 (211)', id:'211'}, {label:'單間門 (211單間)', id:'211單間'}],
+    '212':           [{label:'外門 (212新)', id:'212新'}, {label:'單間門 (212單)', id:'212單'}],
+    '多功能教室':    [{label:'多功能教室門', id:'多功能'}],
+    '演一莊':        [{label:'演一莊門', id:'演一莊'}],
+    '音一莊':        [{label:'音一莊門', id:'音一莊'}],
+    '音二莊':        [{label:'音二莊門', id:'音二莊'}],
+    '音三莊':        [{label:'音三莊門', id:'音三莊'}],
+  };
+  const lockOptions = ROOM_TO_LOCK[r.name] || [{label: r.name+'門', id: r.name}];
+
+  // 只有一道門直接發密碼，多道門先讓使用者選
+  if(lockOptions.length === 1) {
+    _doGetPassword(r, cls, padded, person, lockOptions[0].id);
+  } else {
+    // 跳出選門視窗
+    const doorHtml = lockOptions.map((opt,i) =>
+      `<label class="rl" style="cursor:pointer">
+        <input type="radio" name="door-sel" value="${escHtml(opt.id)}" ${i===0?'checked':''}>
+        🚪 ${escHtml(opt.label)}
+      </label>`
+    ).join('');
+    closeM();
+    showM(`<div class="mt">🚪 ${escHtml(r.name)} — 請選擇要開哪道門</div>
+      <div class="alert ai" style="margin-bottom:1rem;font-size:13px">此房間有多道門，請選擇你要進入的門</div>
+      <div class="rg">${doorHtml}</div>
+      <div class="ma">
+        <button class="btn btn-o" onclick="closeM()">取消</button>
+        <button class="btn btn-p" onclick="
+          const sel=document.querySelector('input[name=door-sel]:checked');
+          if(sel){ closeM(); _doGetPassword(${JSON.stringify(r.name)+'_room'}, ${JSON.stringify(cls)}, ${JSON.stringify(padded)}, {name:${JSON.stringify(person.name)}}, sel.value); }
+        ">確認開門</button>
+      </div>`);
+  }
+}
+
+function _doGetPassword(r, cls, padded, person, lockId) {
+  // r 可能是 room 物件或 room name 字串
+  const roomName = typeof r === 'string' ? r.replace('_room','') : r.name;
+  showM(`<div class="mt" style="text-align:center;font-size:18px;padding-bottom:.75rem">🔑 取得門鎖密碼中...</div>
+    <div style="text-align:center;padding:1rem;color:var(--mut)">請稍候...</div>`);
   try {
     const fn = firebase.functions().httpsCallable('handleBooking');
-    fn({lockId: r.name, userName: cls+' '+padded+'號 '+person.name, durationMinutes: 10})
+    fn({lockId: lockId, userName: cls+' '+padded+'號 '+person.name, durationMinutes: 10})
       .then(result => {
         closeM();
         const pwd = result.data && result.data.password ? result.data.password : null;
-        const expireMin = 10;
         showM(`<div class="mt" style="text-align:center;font-size:18px;padding-bottom:.75rem">✅ 借用完成</div>
           <div style="text-align:center;padding:.5rem 0 1rem">
-            <div style="font-size:15px;font-weight:500;color:var(--AC);margin-bottom:.75rem">${escHtml(r.name)}｜${escHtml(cls)} ${escHtml(padded)}號 ${escHtml(person.name)}</div>
+            <div style="font-size:15px;font-weight:500;color:var(--AC);margin-bottom:.75rem">${escHtml(roomName)}｜${escHtml(cls)} ${escHtml(padded)}號 ${escHtml(person.name)}</div>
             ${pwd ? `<div style="background:var(--Bl);border:2px solid var(--Bb);border-radius:var(--rl);padding:1.25rem;margin:.75rem 0">
-              <div style="font-size:12px;color:var(--B);font-weight:500;margin-bottom:.5rem">🔐 門鎖臨時密碼（${expireMin} 分鐘內有效）</div>
+              <div style="font-size:12px;color:var(--B);font-weight:500;margin-bottom:.5rem">🔐 門鎖臨時密碼（10 分鐘內有效）</div>
               <div style="font-size:36px;font-weight:900;font-family:'IBM Plex Mono',monospace;color:var(--AC);letter-spacing:.15em">${pwd}</div>
               <div style="font-size:11px;color:var(--mut);margin-top:.5rem">請在時效內輸入密碼開門</div>
             </div>` : `<div style="background:var(--Gl);border:1px solid var(--Gb);border-radius:var(--r);padding:1rem;margin:.75rem 0;color:var(--G);font-size:14px">
@@ -945,12 +994,11 @@ function confBorrow(id){
       .catch(err => {
         closeM();
         console.error('取得密碼失敗:', err);
-        showM(`<div class="mt" style="text-align:center;font-size:18px;padding-bottom:.75rem">✅ 借用完成</div>
+        showM(`<div class="mt" style="text-align:center;font-size:18px">✅ 借用完成</div>
           <div style="text-align:center;padding:.5rem 0 1rem">
-            <div style="font-size:15px;font-weight:500;color:var(--AC);margin-bottom:.5rem">${escHtml(r.name)}｜${escHtml(cls)} ${escHtml(padded)}號 ${escHtml(person.name)}</div>
+            <div style="font-size:15px;font-weight:500;color:var(--AC);margin-bottom:.5rem">${escHtml(roomName)}｜${escHtml(cls)} ${escHtml(padded)}號 ${escHtml(person.name)}</div>
             <div style="background:var(--Gl);border:1px solid var(--Gb);border-radius:var(--r);padding:1rem;margin:.75rem 0;color:var(--G);font-size:14px;line-height:1.8">
-              📦 請至鑰匙存放處<strong>自取鑰匙</strong><br>
-              🚪 開完門後請<strong>立即歸還鑰匙</strong>
+              📦 請至鑰匙存放處<strong>自取鑰匙</strong><br>🚪 開完門後請<strong>立即歸還鑰匙</strong>
             </div>
           </div>
           <div class="ma" style="justify-content:center"><button class="btn btn-p" onclick="closeM()" style="min-width:100px">我知道了</button></div>`);
@@ -959,12 +1007,13 @@ function confBorrow(id){
     closeM();
     showM(`<div class="mt" style="text-align:center">✅ 借用完成</div>
       <div style="text-align:center;padding:1rem">
-        <div style="font-size:15px;font-weight:500;color:var(--AC)">${escHtml(r.name)}｜${escHtml(person.name)}</div>
+        <div style="font-size:15px;font-weight:500;color:var(--AC)">${escHtml(roomName)}｜${escHtml(person.name)}</div>
         <div style="margin-top:1rem;color:var(--mut);font-size:13px">請至鑰匙存放處自取鑰匙</div>
       </div>
       <div class="ma" style="justify-content:center"><button class="btn btn-p" onclick="closeM()">我知道了</button></div>`);
   }
 }
+// placeholder to close confBorrow - actual closing brace is above
 
 /* ═══ RETURN MODAL ═══ */
 function openRetM(r){
@@ -1061,48 +1110,6 @@ function retake(){
   document.getElementById('cam-status').textContent='尚未拍攝';
 }
 function stopCam(){if(vs){vs.getTracks().forEach(t=>t.stop());vs=null;}}
-
-/* ── 借用相機 ── */
-let cpBorrow = null;
-let vsBorrow = null;
-function startCamB(){
-  navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:1280},height:{ideal:960}}})
-  .then(stream=>{
-    vsBorrow=stream;
-    const wrap=document.getElementById('camwrap-b');
-    wrap.innerHTML='<video id="camv-b" autoplay playsinline muted></video><div class="face-guide"></div><div class="face-hint">請手持鑰匙，讓臉和鑰匙都出現在畫面中</div>';
-    document.getElementById('camv-b').srcObject=stream;
-    document.getElementById('bco-b').style.display='none';
-    document.getElementById('bsn-b').style.display='';
-    document.getElementById('cam-status-b').textContent='攝影機已開啟，請對準後拍攝';
-  }).catch(e=>{
-    document.getElementById('camwrap-b').innerHTML='<div class="cam-ph"><div>⚠</div><div style="margin-top:6px;font-size:13px">攝影機無法開啟</div></div>';
-    document.getElementById('cam-status-b').textContent='攝影機存取失敗：'+e.message;
-  });
-}
-function takePhotoB(){
-  const v2=document.getElementById('camv-b');if(!v2)return;
-  const c=document.createElement('canvas');
-  c.width=v2.videoWidth||640;c.height=v2.videoHeight||480;
-  c.getContext('2d').drawImage(v2,0,0);
-  cpBorrow=c.toDataURL('image/jpeg',.82);
-  if(vsBorrow){vsBorrow.getTracks().forEach(t=>t.stop());vsBorrow=null;}
-  const wrap=document.getElementById('camwrap-b');
-  if(wrap)wrap.innerHTML='<img src="'+cpBorrow+'" alt="借用照片" style="width:100%;height:100%;object-fit:cover">';
-  document.getElementById('bsn-b').style.display='none';
-  document.getElementById('brt-b').style.display='';
-  document.getElementById('bco-b').style.display='none';
-  const bcb=document.getElementById('bcb');if(bcb){bcb.disabled=false;bcb.removeAttribute('disabled');}
-  document.getElementById('cam-status-b').textContent='✅ 照片已拍攝，可確認借用';
-}
-function retakeB(){
-  cpBorrow=null;
-  const bcb=document.getElementById('bcb');if(bcb)bcb.disabled=true;
-  document.getElementById('brt-b').style.display='none';
-  document.getElementById('bco-b').style.display='';
-  document.getElementById('camwrap-b').innerHTML='<div class="cam-ph"><div style="font-size:36px">📷</div><div style="font-size:13px;margin-top:6px">請點擊「開啟攝影機」</div></div>';
-  document.getElementById('cam-status-b').textContent='尚未拍攝';
-}
 function confReturn(id){
   const cls=v('rc2');
   const seat=nkState['rn2'];
@@ -1114,12 +1121,50 @@ function confReturn(id){
   if(!cp){showT('請先拍攝鑰匙照片','tw2');return;}
   const r=DB.rooms.find(x=>x.id===id);
   if(!r){showT('找不到琴房資料','td2');return;}
+
+  // 多道門處理
+  const ROOM_TO_LOCK_RET = {
+    '101':  [{label:'外門 (101)', id:'101'}, {label:'單間門 (101單間)', id:'101單間'}],
+    '102':  [{label:'外門 (102)', id:'102'}, {label:'單間門 (102單間)', id:'102單間'}],
+    '104':  [{label:'外門 (104)', id:'104'}, {label:'單間門 (104單)', id:'104單'}],
+    '211':  [{label:'外門 (211)', id:'211'}, {label:'單間門 (211單間)', id:'211單間'}],
+    '212':  [{label:'外門 (212新)', id:'212新'}, {label:'單間門 (212單)', id:'212單'}],
+  };
+  const lockOptions = ROOM_TO_LOCK_RET[r.name];
+
+  if(lockOptions) {
+    // 跳出選門視窗
+    const doorHtml = lockOptions.map((opt,i) =>
+      `<label class="rl" style="cursor:pointer">
+        <input type="radio" name="ret-door-sel" value="${escHtml(opt.id)}" ${i===0?'checked':''}>
+        🚪 ${escHtml(opt.label)}
+      </label>`
+    ).join('');
+    showM(`<div class="mt">🚪 ${escHtml(r.name)} — 請選擇歸還的是哪道門</div>
+      <div class="alert ai" style="margin-bottom:1rem;font-size:13px">此房間有多道門，請選擇你要歸還的門</div>
+      <div class="rg">${doorHtml}</div>
+      <div class="ma">
+        <button class="btn btn-o" onclick="closeM()">取消</button>
+        <button class="btn btn-p" onclick="
+          const sel=document.querySelector('input[name=ret-door-sel]:checked');
+          if(sel){ closeM(); _doReturn('${escHtml(id)}', '${escHtml(cls)}', '${escHtml(padded)}', '${escHtml(person.name)}', sel.value); }
+        ">確認歸還</button>
+      </div>`);
+  } else {
+    _doReturn(id, cls, padded, person.name, null);
+  }
+}
+
+function _doReturn(id, cls, padded, personName, selectedLockId){
+  const r=DB.rooms.find(x=>x.id===id);
+  if(!r)return;
   if(!Array.isArray(DB.history))DB.history=[];
   if(!DB.ids)DB.ids={h:100,rep:10,ppl:30};
   const h=DB.history.find(x=>x.rid===id&&!x.returnTime);
   const now=ts();
-  if(h){h.returnTime=now;h.photo=cp;h.returner={cls,seatNo:padded,name:person.name};}
-  else DB.history.unshift({id:++DB.ids.h,room:r.name,rid:r.id,cls:r.borrower.cls,seatNo:r.borrower.seatNo,name:r.borrower.name,borrowTime:r.borrower.time,returnTime:now,photo:cp,reason:r.borrower.reason,returner:{cls,seatNo:padded,name:person.name}});
+  const person = {name: personName};
+  if(h){h.returnTime=now;h.photo=cp;h.returner={cls,seatNo:padded,name:personName};}
+  else DB.history.unshift({id:++DB.ids.h,room:r.name,rid:r.id,cls:r.borrower?.cls||cls,seatNo:r.borrower?.seatNo||padded,name:r.borrower?.name||personName,borrowTime:r.borrower?.time||now,returnTime:now,photo:cp,reason:r.borrower?.reason||'',returner:{cls,seatNo:padded,name:personName}});
   r.status='av';delete r.borrower;cp=null;stopCam();nkReset('rn2');
   saveDB();renderStats();renderRooms();
   closeM();
@@ -1642,14 +1687,57 @@ function showM(html,wide=false,extraClass=''){
 }
 function closeM(){
   stopCam();
-  if(vsBorrow){vsBorrow.getTracks().forEach(t=>t.stop());vsBorrow=null;}
-  cpBorrow=null;
+  if(typeof vsBorrow!=='undefined'&&vsBorrow){vsBorrow.getTracks().forEach(t=>t.stop());vsBorrow=null;}
+  if(typeof cpBorrow!=='undefined')cpBorrow=null;
   cp=null;
   const el=document.getElementById('mroot');if(el)el.remove();
 }
 function showT(msg,type='ti'){
   const t=document.createElement('div');t.className=`toast ${type}`;t.textContent=msg;
   document.body.appendChild(t);setTimeout(()=>t.remove(),3000);
+}
+
+
+/* ── 借用相機 ── */
+let cpBorrow = null;
+let vsBorrow = null;
+function startCamB(){
+  navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:1280},height:{ideal:960}}})
+  .then(stream=>{
+    vsBorrow=stream;
+    const wrap=document.getElementById('camwrap-b');
+    wrap.innerHTML='<video id="camv-b" autoplay playsinline muted></video><div class="face-guide"></div><div class="face-hint">請手持鑰匙，讓臉和鑰匙都出現在畫面中</div>';
+    document.getElementById('camv-b').srcObject=stream;
+    document.getElementById('bco-b').style.display='none';
+    document.getElementById('bsn-b').style.display='';
+    document.getElementById('cam-status-b').textContent='攝影機已開啟，請對準後拍攝';
+  }).catch(e=>{
+    document.getElementById('camwrap-b').innerHTML='<div class="cam-ph"><div>⚠</div><div style="margin-top:6px;font-size:13px">攝影機無法開啟</div></div>';
+    document.getElementById('cam-status-b').textContent='攝影機存取失敗：'+e.message;
+  });
+}
+function takePhotoB(){
+  const v2=document.getElementById('camv-b');if(!v2)return;
+  const c=document.createElement('canvas');
+  c.width=v2.videoWidth||640;c.height=v2.videoHeight||480;
+  c.getContext('2d').drawImage(v2,0,0);
+  cpBorrow=c.toDataURL('image/jpeg',.82);
+  if(vsBorrow){vsBorrow.getTracks().forEach(t=>t.stop());vsBorrow=null;}
+  const wrap=document.getElementById('camwrap-b');
+  if(wrap)wrap.innerHTML='<img src="'+cpBorrow+'" alt="借用照片" style="width:100%;height:100%;object-fit:cover">';
+  document.getElementById('bsn-b').style.display='none';
+  document.getElementById('brt-b').style.display='';
+  document.getElementById('bco-b').style.display='none';
+  const bcb=document.getElementById('bcb');if(bcb){bcb.disabled=false;bcb.removeAttribute('disabled');}
+  document.getElementById('cam-status-b').textContent='✅ 照片已拍攝，可確認借用';
+}
+function retakeB(){
+  cpBorrow=null;
+  const bcb=document.getElementById('bcb');if(bcb)bcb.disabled=true;
+  document.getElementById('brt-b').style.display='none';
+  document.getElementById('bco-b').style.display='';
+  document.getElementById('camwrap-b').innerHTML='<div class="cam-ph"><div style="font-size:36px">📷</div><div style="font-size:13px;margin-top:6px">請點擊「開啟攝影機」</div></div>';
+  document.getElementById('cam-status-b').textContent='尚未拍攝';
 }
 
 /* ═══ 門鎖控制 ═══ */
@@ -1678,19 +1766,16 @@ const LOCKS = [
   {id:'101單間',    name:'101 單間',    status:'offline'},
   {id:'101',        name:'101',          status:'offline'},
 ];
-
 function renderLockGrid(){
   const grid=document.getElementById('lock-grid');
   if(!grid)return;
   grid.innerHTML=LOCKS.map(lock=>`
-    <div style="background:var(--sur);border:1.5px solid var(--bdr);border-radius:var(--rl);padding:.875rem;position:relative;">
+    <div style="background:var(--sur);border:1.5px solid var(--bdr);border-radius:var(--rl);padding:.875rem;">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
         <input type="checkbox" id="chk-${lock.id}" style="width:16px;height:16px;accent-color:var(--AC);flex-shrink:0">
         <span style="font-size:15px;font-weight:700;font-family:'IBM Plex Mono',monospace;flex:1">${lock.name}</span>
-        <span style="font-size:11px;padding:2px 7px;border-radius:20px;font-weight:500;white-space:nowrap;
-          ${lock.status==='online'
-            ?'background:var(--Gl);color:var(--G);border:1px solid var(--Gb)'
-            :'background:#f0f0f0;color:#888;border:1px solid #ddd'}">
+        <span style="font-size:11px;padding:2px 7px;border-radius:20px;font-weight:500;
+          ${lock.status==='online'?'background:var(--Gl);color:var(--G);border:1px solid var(--Gb)':'background:#f0f0f0;color:#888;border:1px solid #ddd'}">
           ${lock.status==='online'?'● Online':'○ Offline'}
         </span>
       </div>
@@ -1702,89 +1787,38 @@ function renderLockGrid(){
     </div>
   `).join('');
 }
-
-function setLockMsg(lockId,msg,color){
-  const el=document.getElementById('lock-msg-'+lockId);
-  if(el){el.textContent=msg;el.style.color=color||'var(--mut)';}
-}
-
-async function callLockFn(fnName,lockId){
-  const fn=firebase.functions().httpsCallable(fnName);
-  const result=await fn({lockId,adminKey:ADMIN_KEY});
-  return result.data;
-}
-
+function setLockMsg(lockId,msg,color){const el=document.getElementById('lock-msg-'+lockId);if(el){el.textContent=msg;el.style.color=color||'var(--mut)';}}
+async function callLockFn(fnName,lockId){const fn=firebase.functions().httpsCallable(fnName);const result=await fn({lockId,adminKey:ADMIN_KEY});return result.data;}
 async function singleLockAction(lockId,action){
   const label=action==='unlock'?'解鎖':'上鎖';
   setLockMsg(lockId,'處理中...','var(--A)');
-  try{
-    await callLockFn(action==='unlock'?'manualUnlock':'manualLock',lockId);
-    setLockMsg(lockId,'✓ '+label+'成功','var(--G)');
-    showT(lockId+' '+label+'成功','ts');
-  }catch(err){
-    setLockMsg(lockId,'✗ 操作失敗','var(--R)');
-    showT(lockId+' '+label+'失敗：'+err.message,'td2');
-    console.error(err);
-  }
+  try{await callLockFn(action==='unlock'?'manualUnlock':'manualLock',lockId);setLockMsg(lockId,'✓ '+label+'成功','var(--G)');showT(lockId+' '+label+'成功','ts');}
+  catch(err){setLockMsg(lockId,'✗ 操作失敗','var(--R)');showT(lockId+' '+label+'失敗：'+err.message,'td2');console.error(err);}
 }
-
 async function lockBatchAction(action){
   const label=action==='unlock'?'解鎖':'上鎖';
   if(!confirm('確認要對全部 '+LOCKS.length+' 個門鎖執行「'+label+'」？'))return;
-  showT('正在'+label+'全部門鎖...','ti');
-  let ok=0,fail=0;
-  for(const lock of LOCKS){
-    try{
-      await callLockFn(action==='unlock'?'manualUnlock':'manualLock',lock.id);
-      setLockMsg(lock.id,'✓ '+label+'成功','var(--G)');ok++;
-    }catch(e){setLockMsg(lock.id,'✗ 失敗','var(--R)');fail++;}
-  }
+  showT('正在'+label+'全部門鎖...','ti');let ok=0,fail=0;
+  for(const lock of LOCKS){try{await callLockFn(action==='unlock'?'manualUnlock':'manualLock',lock.id);setLockMsg(lock.id,'✓ '+label+'成功','var(--G)');ok++;}catch(e){setLockMsg(lock.id,'✗ 失敗','var(--R)');fail++;}}
   showT('完成：'+ok+' 成功，'+fail+' 失敗',ok>0?'ts':'td2');
 }
-
 function lockSelectAll(){LOCKS.forEach(l=>{const c=document.getElementById('chk-'+l.id);if(c)c.checked=true;});}
 function lockSelectNone(){LOCKS.forEach(l=>{const c=document.getElementById('chk-'+l.id);if(c)c.checked=false;});}
-
 async function lockBatchSelected(action){
   const selected=LOCKS.filter(l=>{const c=document.getElementById('chk-'+l.id);return c&&c.checked;});
   if(!selected.length){showT('請先勾選門鎖','tw2');return;}
   const label=action==='unlock'?'解鎖':'上鎖';
   if(!confirm('確認要對 '+selected.length+' 個門鎖執行「'+label+'」？'))return;
-  showT('正在處理 '+selected.length+' 個門鎖...','ti');
-  let ok=0,fail=0;
-  for(const lock of selected){
-    try{
-      await callLockFn(action==='unlock'?'manualUnlock':'manualLock',lock.id);
-      setLockMsg(lock.id,'✓ '+label+'成功','var(--G)');ok++;
-    }catch(e){setLockMsg(lock.id,'✗ 失敗','var(--R)');fail++;}
-  }
+  showT('正在處理 '+selected.length+' 個門鎖...','ti');let ok=0,fail=0;
+  for(const lock of selected){try{await callLockFn(action==='unlock'?'manualUnlock':'manualLock',lock.id);setLockMsg(lock.id,'✓ '+label+'成功','var(--G)');ok++;}catch(e){setLockMsg(lock.id,'✗ 失敗','var(--R)');fail++;}}
   showT('完成：'+ok+' 成功，'+fail+' 失敗',ok>0?'ts':'td2');
 }
-
 function saveLockTime(){
-  const t=document.getElementById('lock-time-input')?.value;
-  if(!t){showT('請選擇時間','tw2');return;}
-  if(fbDB){
-    fbDB.ref('settings/lockTime').set(t).then(()=>{
-      const el=document.getElementById('lock-time-status');
-      if(el)el.textContent='✓ 已設定為每天 '+t+' 上鎖';
-      showT('上鎖時間已儲存：'+t,'ts');
-    }).catch(()=>showT('儲存失敗','td2'));
-  }
+  const t=document.getElementById('lock-time-input')?.value;if(!t){showT('請選擇時間','tw2');return;}
+  if(fbDB){fbDB.ref('settings/lockTime').set(t).then(()=>{const el=document.getElementById('lock-time-status');if(el)el.textContent='✓ 已設定為每天 '+t+' 上鎖';showT('上鎖時間已儲存：'+t,'ts');}).catch(()=>showT('儲存失敗','td2'));}
 }
-
 function loadLockTime(){
-  if(fbDB){
-    fbDB.ref('settings/lockTime').get().then(snap=>{
-      if(snap.exists()){
-        const t=snap.val();
-        const inp=document.getElementById('lock-time-input');
-        const el=document.getElementById('lock-time-status');
-        if(inp)inp.value=t;
-        if(el)el.textContent='目前設定：每天 '+t+' 上鎖';
-      }
-    });
-  }
+  if(fbDB){fbDB.ref('settings/lockTime').get().then(snap=>{if(snap.exists()){const t=snap.val();const inp=document.getElementById('lock-time-input');const el=document.getElementById('lock-time-status');if(inp)inp.value=t;if(el)el.textContent='目前設定：每天 '+t+' 上鎖';}});}
 }
 
 /* ═══ INIT ═══ */
