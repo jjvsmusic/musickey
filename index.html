@@ -925,6 +925,7 @@ function confBorrow(id){
     '102':           [{label:'外門 (102)', id:'102'}, {label:'單間門 (102單間)', id:'102單間'}],
     '104':           [{label:'外門 (104)', id:'104'}, {label:'單間門 (104單)', id:'104單'}],
     '105室內樂教室': [{label:'105室內樂教室門', id:'105'}],
+    '105室內樂 教室': [{label:'105室內樂教室門', id:'105'}],
     '二樓遙控器':    [{label:'室內樂教室門', id:'室內樂教室'}],
     '106':           [{label:'106門', id:'106'}],
     '209展演廳':     [{label:'209展演廳門', id:'209展演廳'}],
@@ -937,7 +938,11 @@ function confBorrow(id){
     '音二莊':        [{label:'音二莊門', id:'音二莊'}],
     '音三莊':        [{label:'音三莊門', id:'音三莊'}],
   };
-  const lockOptions = ROOM_TO_LOCK[r.name] || [{label: r.name+'門', id: r.name}];
+  // 正規化查詢（去除空白，嘗試多種寫法）
+  const lockOptions = ROOM_TO_LOCK[r.name]
+    || ROOM_TO_LOCK[r.name.replace(/\s/g,'')]
+    || ROOM_TO_LOCK[r.name.trim()]
+    || [{label: r.name+'門', id: r.name}];
 
   // 只有一道門直接發密碼，多道門先讓使用者選
   if(lockOptions.length === 1) {
