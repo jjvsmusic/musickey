@@ -956,15 +956,14 @@ function confBorrow(id){
       </label>`
     ).join('');
     closeM();
+    // 儲存借用資訊供選門後使用
+    window._pendingBorrow = {r, cls, padded, person};
     showM(`<div class="mt">🚪 ${escHtml(r.name)} — 請選擇要開哪道門</div>
       <div class="alert ai" style="margin-bottom:1rem;font-size:13px">此房間有多道門，請選擇你要進入的門</div>
       <div class="rg">${doorHtml}</div>
       <div class="ma">
         <button class="btn btn-o" onclick="closeM()">取消</button>
-        <button class="btn btn-p" onclick="
-          const sel=document.querySelector('input[name=door-sel]:checked');
-          if(sel){ closeM(); _doGetPassword(${JSON.stringify(r.name)+'_room'}, ${JSON.stringify(cls)}, ${JSON.stringify(padded)}, {name:${JSON.stringify(person.name)}}, sel.value); }
-        ">確認開門</button>
+        <button class="btn btn-p" onclick="confirmDoorSelect()">確認開門</button>
       </div>`);
   }
 }
@@ -1145,15 +1144,14 @@ function confReturn(id){
         🚪 ${escHtml(opt.label)}
       </label>`
     ).join('');
+    // 儲存歸還資訊供選門後使用
+    window._pendingReturn = {id, cls, padded, personName: person.name};
     showM(`<div class="mt">🚪 ${escHtml(r.name)} — 請選擇歸還的是哪道門</div>
       <div class="alert ai" style="margin-bottom:1rem;font-size:13px">此房間有多道門，請選擇你要歸還的門</div>
       <div class="rg">${doorHtml}</div>
       <div class="ma">
         <button class="btn btn-o" onclick="closeM()">取消</button>
-        <button class="btn btn-p" onclick="
-          const sel=document.querySelector('input[name=ret-door-sel]:checked');
-          if(sel){ closeM(); _doReturn('${escHtml(id)}', '${escHtml(cls)}', '${escHtml(padded)}', '${escHtml(person.name)}', sel.value); }
-        ">確認歸還</button>
+        <button class="btn btn-p" onclick="confirmReturnDoorSelect()">確認歸還</button>
       </div>`);
   } else {
     _doReturn(id, cls, padded, person.name, null);
@@ -1824,6 +1822,27 @@ function saveLockTime(){
 }
 function loadLockTime(){
   if(fbDB){fbDB.ref('settings/lockTime').get().then(snap=>{if(snap.exists()){const t=snap.val();const inp=document.getElementById('lock-time-input');const el=document.getElementById('lock-time-status');if(inp)inp.value=t;if(el)el.textContent='目前設定：每天 '+t+' 上鎖';}});}
+}
+
+
+function confirmDoorSelect() {
+  const sel = document.querySelector('input[name=door-sel]:checked');
+  if (!sel) return;
+  const lockId = sel.value;
+  const p = window._pendingBorrow;
+  if (!p) return;
+  closeM();
+  _doGetPassword(p.r, p.cls, p.padded, p.person, lockId);
+}
+
+function confirmReturnDoorSelect() {
+  const sel = document.querySelector('input[name=ret-door-sel]:checked');
+  if (!sel) return;
+  const lockId = sel.value;
+  const p = window._pendingReturn;
+  if (!p) return;
+  closeM();
+  _doReturn(p.id, p.cls, p.padded, p.personName, lockId);
 }
 
 /* ═══ INIT ═══ */
