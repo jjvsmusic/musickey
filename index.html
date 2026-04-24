@@ -2,8 +2,17 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>莊敬音樂科琴房鑰匙登記系統</title>
+<!-- PWA / 加入主畫面 -->
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="琴房登記">
+<meta name="application-name" content="琴房登記">
+<meta name="theme-color" content="#2D4A6A">
+<!-- 防止 iOS Safari 自動偵測電話/日期 -->
+<meta name="format-detection" content="telephone=no, date=no">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
 :root{
@@ -16,11 +25,15 @@
   --AC:#2D4A6A;
   --r:8px;--rl:12px;
   --sh:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
-  --shm:0 4px 16px rgba(0,0,0,.12),0 2px 4px rgba(0,0,0,.06)
+  --shm:0 4px 16px rgba(0,0,0,.12),0 2px 4px rgba(0,0,0,.06);
+  /* iOS safe area */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
-*{box-sizing:border-box;margin:0;padding:0}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;overflow:hidden}
-body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--txt);font-size:14px;line-height:1.6;display:flex;flex-direction:column}
+body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--txt);font-size:14px;line-height:1.6;display:flex;flex-direction:column;
+  padding-top:var(--safe-top);padding-bottom:var(--safe-bottom)}
 
 /* ── TOPBAR ── */
 .topbar{background:var(--AC);display:flex;align-items:center;height:52px;padding:0 1rem;gap:6px;flex-shrink:0;box-shadow:var(--shm);z-index:100}
@@ -35,7 +48,7 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--txt)
 
 /* ── PAGES ── */
 .pages{flex:1;overflow:hidden;position:relative}
-.page{display:none;position:absolute;inset:0;overflow-y:auto;overflow-x:hidden}
+.page{display:none;position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch}
 .page.active{display:block}
 
 /* ── BORROW PAGE LAYOUT ── */
@@ -51,7 +64,7 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--txt)
 .fb{flex:1;padding:10px 8px;font-size:18px;font-weight:700;font-family:'IBM Plex Mono',monospace;border-radius:var(--rl);border:2px solid var(--bdr);background:var(--sur);cursor:pointer;transition:all .15s;color:var(--mut)}
 .fb:hover{border-color:var(--AC);color:var(--AC)}
 .fb.active{background:var(--AC);color:#fff;border-color:var(--AC)}
-.rooms-wrap{flex:1;overflow-y:auto;min-height:0}
+.rooms-wrap{flex:1;overflow-y:auto;min-height:0;-webkit-overflow-scrolling:touch}
 .rooms-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:10px}
 .rc{background:var(--sur);border-radius:var(--rl);border:1.5px solid var(--bdr);padding:.875rem .875rem .75rem;cursor:pointer;transition:all .15s;position:relative;overflow:hidden}
 .rc::before{content:'';position:absolute;top:0;left:0;width:4px;height:100%}
@@ -72,41 +85,43 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--txt)
 .hist-table-wrap{flex:1;overflow-y:auto;min-height:0}
 
 /* ── MODAL ── */
-.mo{position:fixed;inset:0;background:rgba(20,16,12,.5);z-index:500;display:flex;align-items:center;justify-content:center;padding:1rem;backdrop-filter:blur(3px)}
-.md{background:var(--sur);border-radius:var(--rl);border:1px solid var(--bdr);width:100%;max-width:480px;padding:1.5rem;box-shadow:var(--shm);max-height:94vh;overflow-y:auto}
+.mo{position:fixed;inset:0;background:rgba(20,16,12,.5);z-index:500;display:flex;align-items:center;justify-content:center;padding:.75rem;backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
+.md{background:var(--sur);border-radius:var(--rl);border:1px solid var(--bdr);width:100%;max-width:480px;padding:1.25rem;box-shadow:var(--shm);max-height:96vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .md.wide{max-width:640px}
-.mt{font-size:16px;font-weight:500;padding-bottom:1rem;margin-bottom:1.25rem;border-bottom:1px solid var(--bdr)}
-.ma{display:flex;gap:8px;justify-content:flex-end;margin-top:1.25rem;padding-top:1rem;border-top:1px solid var(--bdr)}
+.mt{font-size:16px;font-weight:500;padding-bottom:.75rem;margin-bottom:1rem;border-bottom:1px solid var(--bdr)}
+.ma{display:flex;gap:8px;justify-content:flex-end;margin-top:1rem;padding-top:.75rem;border-top:1px solid var(--bdr)}
 
 /* ── CAMERA ── */
-.cam-wrap{position:relative;width:100%;aspect-ratio:4/3;background:#111;border-radius:var(--r);overflow:hidden;margin-bottom:.75rem}
+.cam-wrap{position:relative;width:100%;background:#111;border-radius:var(--r);overflow:hidden;margin-bottom:.5rem}
+/* 平板橫向時相機高度限制 */
+.cam-wrap{aspect-ratio:4/3;max-height:28vh}
 .cam-wrap video,.cam-wrap img,.cam-wrap canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .face-guide{position:absolute;top:50%;left:50%;transform:translate(-50%,-60%);width:45%;aspect-ratio:3/4;border:2px dashed rgba(255,255,255,.6);border-radius:50%;pointer-events:none}
 .face-hint{position:absolute;bottom:8px;width:100%;text-align:center;color:rgba(255,255,255,.8);font-size:12px;pointer-events:none}
 .cam-ph{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#666;gap:8px}
-.cam-ctrl{display:flex;gap:8px;justify-content:center;margin-bottom:.5rem}
-.shutter{width:56px;height:56px;border-radius:50%;border:3px solid #fff;background:rgba(255,255,255,.2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:22px;transition:all .15s}
+.cam-ctrl{display:flex;gap:8px;justify-content:center;margin-bottom:.35rem}
+.shutter{width:48px;height:48px;border-radius:50%;border:3px solid #fff;background:rgba(255,255,255,.2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:20px;transition:all .15s}
 .shutter:hover{background:rgba(255,255,255,.35)}
-.cam-status{font-size:12px;text-align:center;margin-bottom:.5rem;color:var(--mut)}
+.cam-status{font-size:12px;text-align:center;margin-bottom:.35rem;color:var(--mut)}
 
 /* ── FORMS ── */
-.fg{margin-bottom:1rem}
-.fl{display:block;font-size:12px;font-weight:500;color:var(--mut);margin-bottom:5px;text-transform:uppercase;letter-spacing:.06em}
-input[type=text],input[type=password],input[type=date],input[type=time],select,textarea{width:100%;padding:8px 10px;border-radius:var(--r);border:1px solid var(--bdr);background:var(--sur);color:var(--txt);font-size:14px;font-family:'Noto Sans TC',sans-serif;transition:border-color .15s;appearance:auto}
+.fg{margin-bottom:.75rem}
+.fl{display:block;font-size:12px;font-weight:500;color:var(--mut);margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em}
+input[type=text],input[type=password],input[type=date],input[type=time],select,textarea{width:100%;padding:8px 10px;border-radius:var(--r);border:1px solid var(--bdr);background:var(--sur);color:var(--txt);font-size:14px;font-family:'Noto Sans TC',sans-serif;transition:border-color .15s;appearance:auto;-webkit-appearance:auto}
 input:focus,select:focus,textarea:focus{outline:none;border-color:var(--AC);box-shadow:0 0 0 3px rgba(45,74,106,.08)}
 textarea{resize:vertical}
 .ac-wrap{position:relative}
 .ac-list{position:absolute;top:100%;left:0;right:0;background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);box-shadow:var(--shm);z-index:600;max-height:180px;overflow-y:auto;display:none}
 .ac-item{padding:8px 12px;cursor:pointer;font-size:14px;transition:background .1s}
 .ac-item:hover,.ac-item.sel{background:var(--Bl);color:var(--B)}
-.rg{display:flex;flex-direction:column;gap:6px}
-.rl{display:flex;align-items:center;gap:8px;cursor:pointer;padding:7px 10px;border-radius:var(--r);border:1px solid var(--bdr);transition:all .12s}
+.rg{display:flex;flex-direction:column;gap:5px}
+.rl{display:flex;align-items:center;gap:8px;cursor:pointer;padding:6px 10px;border-radius:var(--r);border:1px solid var(--bdr);transition:all .12s}
 .rl:hover{background:var(--bg);border-color:var(--AC)}
 .rl input[type=radio]{width:15px;height:15px;accent-color:var(--AC)}
-.dvd{height:1px;background:var(--bdr);margin:1rem 0}
+.dvd{height:1px;background:var(--bdr);margin:.75rem 0}
 
 /* ── BTN ── */
-.btn{padding:6px 14px;border-radius:var(--r);border:1px solid transparent;font-family:'Noto Sans TC',sans-serif;font-size:13px;cursor:pointer;transition:all .15s}
+.btn{padding:6px 14px;border-radius:var(--r);border:1px solid transparent;font-family:'Noto Sans TC',sans-serif;font-size:13px;cursor:pointer;transition:all .15s;-webkit-tap-highlight-color:transparent}
 .btn-o{background:transparent;color:var(--txt);border-color:var(--bdr)}.btn-o:hover{background:var(--bg)}
 .btn-p{background:var(--AC);color:#fff;border-color:var(--AC)}.btn-p:hover{background:#1e3a52}
 .btn-p:disabled,.btn-s:disabled{opacity:.5;cursor:not-allowed}
@@ -149,7 +164,7 @@ tbody tr:hover td{background:var(--bg)}
 .b-rep{background:var(--Al);color:var(--A);border-color:var(--Ab)}
 
 /* ── ALERT ── */
-.alert{padding:10px 12px;border-radius:var(--r);font-size:13px;margin-bottom:1rem;border:1px solid}
+.alert{padding:10px 12px;border-radius:var(--r);font-size:13px;margin-bottom:.75rem;border:1px solid}
 .ai{background:var(--Bl);color:var(--B);border-color:var(--Bb)}
 .as{background:var(--Gl);color:var(--G);border-color:var(--Gb)}
 .aw{background:var(--Al);color:var(--A);border-color:var(--Ab)}
@@ -173,28 +188,111 @@ tr.dg-src{opacity:.35}
 .notice-editor textarea{min-height:80px}
 
 /* ── NUMPAD ── */
-.numpad-wrap{background:var(--bg);border-radius:var(--rl);padding:.75rem;border:1px solid var(--bdr)}
-.numpad-display{background:var(--sur);border:1.5px solid var(--AC);border-radius:var(--r);padding:.5rem .75rem;margin-bottom:.6rem;display:flex;align-items:baseline;gap:.6rem;min-height:46px}
-.numpad-seat{font-size:22px;font-weight:700;font-family:'IBM Plex Mono',monospace;color:var(--AC);min-width:44px;letter-spacing:.05em}
-.numpad-name{font-size:14px;color:var(--G);font-weight:500;transition:all .2s}
+.numpad-wrap{background:var(--bg);border-radius:var(--rl);padding:.6rem;border:1px solid var(--bdr)}
+.numpad-display{background:var(--sur);border:1.5px solid var(--AC);border-radius:var(--r);padding:.4rem .75rem;margin-bottom:.5rem;display:flex;align-items:baseline;gap:.6rem;min-height:40px}
+.numpad-seat{font-size:20px;font-weight:700;font-family:'IBM Plex Mono',monospace;color:var(--AC);min-width:40px;letter-spacing:.05em}
+.numpad-name{font-size:13px;color:var(--G);font-weight:500;transition:all .2s}
 .numpad-name.err{color:var(--R)}
 .numpad-name.hint{color:var(--mut);font-size:12px;font-weight:400}
-.numpad-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
-.nk{padding:9px 4px;border-radius:var(--r);border:1px solid var(--bdr);background:var(--sur);font-size:17px;font-weight:500;font-family:'IBM Plex Mono',monospace;cursor:pointer;transition:all .12s;text-align:center;color:var(--txt)}
+.numpad-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+.nk{padding:8px 4px;border-radius:var(--r);border:1px solid var(--bdr);background:var(--sur);font-size:16px;font-weight:500;font-family:'IBM Plex Mono',monospace;cursor:pointer;transition:all .12s;text-align:center;color:var(--txt);touch-action:manipulation}
 .nk:hover{background:var(--Bl);border-color:var(--Bb);color:var(--B)}
 .nk:active{transform:scale(.92);background:var(--Bl)}
-.nk.del{font-size:14px;color:var(--R);border-color:var(--Rb)}
+.nk.del{font-size:13px;color:var(--R);border-color:var(--Rb)}
 .nk.del:hover{background:var(--Rl)}
 .nk.zero{grid-column:span 2}
-.seat-hint{font-size:11px;color:var(--mut);text-align:center;margin-top:.4rem}
+.seat-hint{font-size:11px;color:var(--mut);text-align:center;margin-top:.3rem}
 
-/* ── TWO-COLUMN MODAL ── */
-.md.horiz{max-width:760px}
-.modal-cols{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;align-items:start}
+/* ── TWO-COLUMN MODAL（平板借用視窗）── */
+.md.horiz{max-width:820px;padding:1rem}
+.modal-cols{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;align-items:start}
 .modal-col-label{font-size:12px;font-weight:500;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.5rem}
 
 /* ── WEEKDAY ── */
 .wd{font-size:11px;color:var(--mut);font-weight:400}
+
+/* ════════════════════════════════════════
+   手機版響應式（< 600px）
+   ════════════════════════════════════════ */
+@media(max-width:599px){
+  .topbar{height:48px;padding:0 .75rem;gap:4px}
+  .brand{font-size:13px;margin-right:6px}
+  .brand small{display:none}
+  .tab-btn{padding:5px 10px;font-size:12px}
+  .nbtn{padding:4px 8px;font-size:11px}
+  .borrow-layout{padding:.75rem}
+  .stats-row{gap:6px}
+  .sc{padding:.5rem .75rem}
+  .sl{font-size:9px}
+  .sv{font-size:17px}
+  .floor-tabs{gap:6px}
+  .fb{padding:8px 4px;font-size:16px}
+  .rooms-grid{grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
+  .rn{font-size:20px}
+  /* 手機彈窗：全螢幕 */
+  .mo{padding:.5rem}
+  .md{max-height:98vh;padding:1rem;border-radius:var(--rl) var(--rl) 0 0;align-self:flex-end;margin-top:auto}
+  .mo{align-items:flex-end}
+  /* 手機借用視窗：單欄 */
+  .md.horiz{max-width:100%}
+  .modal-cols{grid-template-columns:1fr;gap:.75rem}
+  /* 手機相機縮小 */
+  .cam-wrap{max-height:22vh}
+  /* 手機 numpad 緊湊 */
+  .numpad-wrap{padding:.5rem}
+  .nk{padding:10px 4px;font-size:18px}
+  .numpad-display{min-height:38px}
+  .numpad-seat{font-size:18px}
+  /* 手機管理側欄隱藏（改用 top tabs 概念） */
+  .sb{width:160px}
+  .si{font-size:13px;padding:8px 1rem}
+}
+
+/* ════════════════════════════════════════
+   平板直向（600–1023px）
+   ════════════════════════════════════════ */
+@media(min-width:600px) and (max-width:1023px){
+  .rooms-grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}
+  /* 平板彈窗置中，緊湊 */
+  .mo{padding:.75rem}
+  .md{max-height:97vh}
+  /* 借用視窗：兩欄（班級+座號 / 原因+相機） */
+  .md.horiz{max-width:700px}
+  .modal-cols{grid-template-columns:1fr 1fr;gap:.9rem}
+  /* 平板相機限高 */
+  .cam-wrap{max-height:26vh}
+}
+
+/* ════════════════════════════════════════
+   平板橫向 / 桌機（>= 1024px）
+   ════════════════════════════════════════ */
+@media(min-width:1024px){
+  .rooms-grid{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}
+  .md.horiz{max-width:860px}
+  .modal-cols{grid-template-columns:1fr 1fr 1fr;gap:1.1rem}
+  .cam-wrap{max-height:30vh}
+}
+
+/* ════════════════════════════════════════
+   平板橫向特別處理（landscape + tablet）
+   ════════════════════════════════════════ */
+@media(min-width:600px) and (max-height:700px){
+  /* 橫向平板螢幕高度不足時，縮減所有 padding */
+  .borrow-layout{padding:.6rem}
+  .stats-row{margin-bottom:.6rem}
+  .floor-tabs{margin-bottom:.6rem}
+  .md{padding:.875rem;max-height:98vh}
+  .mt{padding-bottom:.5rem;margin-bottom:.75rem}
+  .ma{margin-top:.6rem;padding-top:.6rem}
+  .fg{margin-bottom:.5rem}
+  .cam-wrap{max-height:22vh}
+  .numpad-wrap{padding:.4rem}
+  .nk{padding:6px 4px}
+  .numpad-display{min-height:34px;padding:.3rem .6rem}
+  .alert{padding:7px 10px;margin-bottom:.5rem}
+  .rl{padding:5px 8px}
+  .rg{gap:4px}
+}
 </style>
 </head>
 <body>
@@ -925,13 +1023,19 @@ function confBorrow(id){
   // 從琴房資料中讀取 lockIds（後台「琴房管理」設定的塗鴉 Lock ID）
   const rawLockIds = Array.isArray(r.lockIds) ? r.lockIds.filter(Boolean) : [];
 
-  if(rawLockIds.length === 0) {
-    // 沒有設定 lockIds → 實體鑰匙模式，直接顯示「請自取鑰匙」
+  // pwdEnabled 預設 true；若明確設為 false 則走實體鑰匙
+  const pwdEnabled = r.pwdEnabled !== false;
+
+  if(rawLockIds.length === 0 || !pwdEnabled) {
+    // 實體鑰匙模式（無 Lock ID 或已關閉派發密碼）
+    const reason = !pwdEnabled && rawLockIds.length > 0
+      ? '此琴房目前暫停派發密碼，請至鑰匙存放處自取鑰匙'
+      : '請至鑰匙存放處自取鑰匙';
     showM(`<div class="mt" style="text-align:center;font-size:18px;padding-bottom:.75rem">✅ 借用完成</div>
       <div style="text-align:center;padding:.5rem 0 1rem">
         <div style="font-size:15px;font-weight:500;color:var(--AC);margin-bottom:.5rem">${escHtml(r.name)}｜${escHtml(cls)} ${escHtml(padded)}號 ${escHtml(person.name)}</div>
         <div style="background:var(--Gl);border:1px solid var(--Gb);border-radius:var(--r);padding:1rem;margin:.75rem 0;color:var(--G);font-size:14px;line-height:1.8">
-          📦 請至鑰匙存放處<strong>自取鑰匙</strong><br>🚪 開完門後請<strong>填寫歸還登記</strong>
+          📦 ${escHtml(reason)}<br>🚪 開完門後請<strong>填寫歸還登記</strong>
         </div>
       </div>
       <div class="ma" style="justify-content:center"><button class="btn btn-p" onclick="closeM()" style="min-width:100px">我知道了</button></div>`);
@@ -1497,7 +1601,7 @@ function renderRMgmt(){
         '<button class="btn btn-o btn-xs" onclick="openRnFloor('+Q+fe+Q+')">✏ 改名</button>'+
         '<button class="btn btn-d btn-xs" onclick="delFloor('+Q+fe+Q+')">刪除</button>'+
       '</div>'+
-      '<div class="tc"><table><thead><tr><th style="width:36px"></th><th>名稱</th><th>狀態</th><th>禁止借用</th><th style="min-width:180px">塗鴉 Lock ID（逗號分多門）</th><th>操作</th></tr></thead><tbody>';
+      '<div class="tc"><table><thead><tr><th style="width:36px"></th><th>名稱</th><th>狀態</th><th>禁止借用</th><th style="min-width:180px">塗鴉 Lock ID（逗號分多門）</th><th style="min-width:90px;text-align:center">派發密碼</th><th>操作</th></tr></thead><tbody>';
     rooms.forEach(function(r){
       var sc=r.status==='av'?'bav':r.status==='bw'?'bbw':'brp';
       var st=r.status==='av'?'可借用':r.status==='bw'?'借用中':'維修中';
@@ -1511,6 +1615,19 @@ function renderRMgmt(){
         '<td><input type="text" value="'+escHtml((r.lockIds||[]).join(','))+'" placeholder="例：104 或 104,104單"'+
           ' style="font-size:12px;padding:4px 7px;width:100%;font-family:monospace"'+
           ' onchange="setRoomLockIds('+Q+rid+Q+',this.value)" title="留空=實體鑰匙；多個門用逗號分隔"></td>'+
+        '<td style="text-align:center">'+
+          (function(){
+            const hasLock=(r.lockIds&&r.lockIds.length>0);
+            if(!hasLock) return '<span style="font-size:11px;color:var(--mut)">—<br><span style="font-size:10px">無Lock ID</span></span>';
+            const on=r.pwdEnabled!==false; // 預設 true
+            return '<label style="display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer">'+
+              '<input type="checkbox" '+(on?'checked':'')+
+              ' onchange="toggleRoomPwd('+Q+rid+Q+',this.checked)"'+
+              ' style="width:18px;height:18px;accent-color:var(--G);cursor:pointer">'+
+              '<span style="font-size:10px;color:'+(on?'var(--G)':'var(--mut)')+'">'+
+              (on?'派發中':'已關閉')+'</span></label>';
+          })()+
+        '</td>'+
         '<td style="display:flex;gap:4px;flex-wrap:wrap">'+
           '<button class="btn btn-o btn-xs" onclick="openRnRoom('+Q+rid+Q+')">✏</button>';
       if(r.status==='bw')html+='<button class="btn btn-xs" style="color:var(--R);border:1px solid var(--Rb);background:transparent" onclick="clearBorrow('+Q+rid+Q+')">🗑 清除借用</button>';
@@ -1544,7 +1661,7 @@ function openRnFloor(f){showM(`<div class="mt">✏ 修改樓層名稱</div><div 
 function rnFloor(old){const n=document.getElementById('rfl')?.value?.trim();if(!n||n===old){closeM();return;}if(DB.floors.includes(n)){showT('已存在','tw2');return;}DB.floors[DB.floors.indexOf(old)]=n;DB.rooms.forEach(r=>{if(r.floor===old)r.floor=n;});if(CFL===old)CFL=n;saveDB();closeM();renderRMgmt();renderFT();renderRooms();}
 function delFloor(f){if(DB.rooms.filter(r=>r.floor===f).some(r=>r.status==='bw')){showT('有借用中琴房','tw2');return;}if(!confirm(`確認刪除樓層「${f}」？`))return;DB.floors=DB.floors.filter(x=>x!==f);DB.rooms=DB.rooms.filter(r=>r.floor!==f);if(CFL===f)CFL=DB.floors[0]||'';saveDB();renderRMgmt();renderFT();renderRooms();renderStats();}
 function openAddRoom(){showM(`<div class="mt">+ 新增琴房</div><div class="fg"><label class="fl">樓層</label><select id="arl">${DB.floors.map(f=>`<option value="${f}">${f}</option>`).join('')}</select></div><div class="fg"><label class="fl">琴房名稱</label><input type="text" id="arn" placeholder="例：106"></div><div class="ma"><button class="btn btn-o" onclick="closeM()">取消</button><button class="btn btn-p" onclick="addRoom()">確認</button></div>`);}
-function addRoom(){const fl=v('arl'),n=document.getElementById('arn')?.value?.trim();if(!n){showT('請輸入名稱','tw2');return;}const mx=Math.max(0,...DB.rooms.filter(r=>r.floor===fl).map(r=>r.order||0));DB.rooms.push({id:'r'+Date.now(),floor:fl,name:n,status:'av',kd:false,lockIds:[],order:mx+1});saveDB();closeM();renderRMgmt();renderFT();renderRooms();renderStats();}
+function addRoom(){const fl=v('arl'),n=document.getElementById('arn')?.value?.trim();if(!n){showT('請輸入名稱','tw2');return;}const mx=Math.max(0,...DB.rooms.filter(r=>r.floor===fl).map(r=>r.order||0));DB.rooms.push({id:'r'+Date.now(),floor:fl,name:n,status:'av',kd:false,lockIds:[],pwdEnabled:true,order:mx+1});saveDB();closeM();renderRMgmt();renderFT();renderRooms();renderStats();}
 function setRpair(id){const r=DB.rooms.find(x=>x.id===id);if(r.status==='bw'){showT('借用中','tw2');return;}r.status='rp';r.issue='人工標記維修';saveDB();renderRMgmt();renderRooms();renderStats();}
 function setAvail(id){const r=DB.rooms.find(x=>x.id===id);r.status='av';delete r.issue;saveDB();renderRMgmt();renderRooms();renderStats();}
 function clearBorrow(id){
@@ -1563,9 +1680,20 @@ function setRoomLockIds(id, val){
   const r=DB.rooms.find(x=>x.id===id);if(!r)return;
   const ids=val.split(',').map(s=>s.trim()).filter(Boolean);
   r.lockIds=ids;
+  // 若清空 Lock ID，同時重設 pwdEnabled
+  if(ids.length===0) r.pwdEnabled=false;
+  else if(r.pwdEnabled===undefined) r.pwdEnabled=true;
   saveDB();
   if(ids.length>0) showT(`${r.name} Lock ID 已儲存：${ids.join(', ')}`,'ts');
   else showT(`${r.name} 已設為實體鑰匙模式`,'ti');
+  renderRMgmt();
+}
+function toggleRoomPwd(id, enabled){
+  const r=DB.rooms.find(x=>x.id===id);if(!r)return;
+  r.pwdEnabled=enabled;
+  saveDB();
+  showT(`${r.name} 派發密碼已${enabled?'開啟':'關閉'}`,'ts');
+  renderRMgmt();
 }
 
 /* ═══ ADMIN HISTORY ═══ */
@@ -1758,6 +1886,13 @@ function showM(html,wide=false,extraClass=''){
   ov.innerHTML=`<div class="${cls}">${html}</div>`;
   ov.addEventListener('click',e=>{if(e.target===ov)closeM();});
   document.getElementById('modal-root').appendChild(ov);
+  // 手機底部滑入動畫
+  const md=ov.querySelector('.md');
+  if(window.innerWidth<600){
+    md.style.transform='translateY(100%)';
+    md.style.transition='transform .25s cubic-bezier(.32,1,.36,1)';
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{md.style.transform='translateY(0)';}));
+  }
 }
 function closeM(){
   stopCam();
