@@ -1084,63 +1084,38 @@ function _doGetPassword(r, cls, padded, person, lockId) {
         closeM();
         const pwd = result.data && result.data.password ? result.data.password : null;
 
-        // 一鍵完成：標記此琴房為可借用（無需填歸還登記）
+        // 密碼派發完成 → 立即標記為可借用（關閉視窗即完成，無需按任何鈕）
         function markReturnedByPwd(){
           if(!roomId) return;
           const room = DB.rooms.find(x=>x.id===roomId);
-          if(!room||room.status!=='bw') return;
-          const h = DB.history.find(x=>x.rid===roomId&&!x.returnTime);
-          if(h){h.returnTime=ts();h.note='密碼開門自動歸還';}
-          room.status='av'; delete room.borrower;
+          if(!room) return;
+          if(room.status==='bw'){
+            const h = DB.history.find(x=>x.rid===roomId&&!x.returnTime);
+            if(h){h.returnTime=ts();h.note='密碼開門自動歸還';}
+            room.status='av'; delete room.borrower;
+          }
           saveDB(); renderStats(); renderRooms();
-          closeM();
-          showT(roomName+' 已標記為可借用','ts');
         }
 
         if(pwd) {
-          // 有密碼 → 塗鴉電子鎖模式：顯示密碼 + 一鍵完成按鈕，10分鐘後自動歸還
-          let countdown = 600; // 10 min
-          let timer;
-          function startCountdown(){
-            timer = setInterval(()=>{
-              countdown--;
-              const el = document.getElementById('pwd-countdown');
-              if(el) el.textContent = Math.floor(countdown/60)+'分'+String(countdown%60).padStart(2,'0')+'秒';
-              if(countdown <= 0){
-                clearInterval(timer);
-                markReturnedByPwd();
-              }
-            }, 1000);
-          }
+          // ✅ 派發密碼成功 → 立即歸還（關窗即可，不需按鈕）
+          markReturnedByPwd();
+
           showM(`<div class="mt" style="text-align:center;font-size:18px;padding-bottom:.75rem">✅ 借用完成</div>
             <div style="text-align:center;padding:.5rem 0 1rem">
               <div style="font-size:15px;font-weight:500;color:var(--AC);margin-bottom:.75rem">${escHtml(roomName)}｜${escHtml(cls)} ${escHtml(padded)}號 ${escHtml(person.name)}</div>
               <div style="background:var(--Bl);border:2px solid var(--Bb);border-radius:var(--rl);padding:1.25rem;margin:.75rem 0">
-                <div style="font-size:12px;color:var(--B);font-weight:500;margin-bottom:.5rem">🔐 門鎖臨時密碼</div>
-                <div style="font-size:36px;font-weight:900;font-family:'IBM Plex Mono',monospace;color:var(--AC);letter-spacing:.15em">${pwd}</div>
-                <div style="font-size:12px;color:var(--mut);margin-top:.5rem">密碼有效倒數：<span id="pwd-countdown" style="font-family:monospace;color:var(--R);font-weight:600">10分00秒</span></div>
+                <div style="font-size:12px;color:var(--B);font-weight:500;margin-bottom:.5rem">🔐 門鎖密碼</div>
+                <div style="font-size:40px;font-weight:900;font-family:'IBM Plex Mono',monospace;color:var(--AC);letter-spacing:.2em">${escHtml(pwd)}</div>
+                <div style="font-size:13px;color:var(--R);font-weight:600;margin-top:.6rem">⌨ 輸入密碼後請記得按 <span style="background:var(--R);color:#fff;padding:1px 8px;border-radius:4px;font-family:monospace">#</span> 字鍵</div>
               </div>
-              <div style="background:var(--Gl);border:1px solid var(--Gb);border-radius:var(--r);padding:.75rem 1rem;color:var(--G);font-size:13px;margin-bottom:.5rem">
-                ✅ 輸入密碼開門後，點下方按鈕即完成，<strong>無需填寫歸還登記</strong>
+              <div style="background:var(--Gl);border:1px solid var(--Gb);border-radius:var(--r);padding:.75rem 1rem;color:var(--G);font-size:13px">
+                ✅ 琴房已自動標記為<strong>可借用</strong>，關閉此視窗即可
               </div>
             </div>
             <div class="ma" style="justify-content:center">
-              <button class="btn btn-s btn-full" onclick="(function(){clearInterval(window._pwdTimer);window._pwdTimer=null;markReturnedByPwd();})()" style="font-size:15px;padding:12px">
-                🚪 我已開門完成，標記為可借用
-              </button>
+              <button class="btn btn-p" onclick="closeM()" style="min-width:120px;font-size:15px;padding:10px 20px">關閉</button>
             </div>`);
-          // 暴露給 inline onclick
-          window.markReturnedByPwd = markReturnedByPwd;
-          window._pwdTimer = null;
-          setTimeout(()=>{ window._pwdTimer = setInterval(()=>{
-            countdown--;
-            const el = document.getElementById('pwd-countdown');
-            if(el) el.textContent = Math.floor(countdown/60)+'分'+String(countdown%60).padStart(2,'0')+'秒';
-            if(countdown <= 0){
-              clearInterval(window._pwdTimer);
-              markReturnedByPwd();
-            }
-          }, 1000); }, 50);
 
         } else {
           // 沒有密碼 → 實體鑰匙模式（塗鴉未連線或該鎖不支援）
