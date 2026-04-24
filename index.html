@@ -584,13 +584,32 @@ function loadDB(){
 }
 
 function saveDB(){
-  // 1. 立即寫入本機備份（確保離線可用）
-  try{ localStorage.setItem(SK, JSON.stringify(DB)); }catch(e){ showT('本機儲存空間不足','td2'); }
-  // 2. 防抖：100ms 內多次 saveDB 只上傳一次
+  // 1. 寫入本機備份（照片不存入 localStorage，避免空間不足）
+  try{
+    const lite = JSON.parse(JSON.stringify(DB));
+    // 移除照片 base64（大檔案），只保留縮圖 flag
+    if(lite.history) lite.history = lite.history.map(h=>{
+      if(h.photo && h.photo.length > 500) return {...h, photo:'[photo]'};
+      return h;
+    });
+    localStorage.setItem(SK, JSON.stringify(lite));
+  }catch(e){
+    // 空間不足時嘗試清除最舊的 30 筆歷史照片再存
+    try{
+      if(DB.history){
+        const sorted=[...DB.history].sort((a,b)=>new Date(a.borrowTime)-new Date(b.borrowTime));
+        sorted.slice(0, Math.min(30, sorted.length)).forEach(h=>{ h.photo=null; });
+      }
+      const lite2 = JSON.parse(JSON.stringify(DB));
+      if(lite2.history) lite2.history = lite2.history.map(h=>({...h, photo: h.photo&&h.photo.length>500?'[photo]':h.photo}));
+      localStorage.setItem(SK, JSON.stringify(lite2));
+      showT('舊照片已自動清除以釋放空間','ti');
+    }catch(e2){ showT('本機儲存空間不足，請至後台清除舊紀錄','td2'); }
+  }
+  // 2. 防抖：100ms 內多次 saveDB 只上傳一次（Firebase 保留完整照片）
   if(saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(()=>{
     if(fbRef && fbReady){
-      // Firebase 不接受 undefined，用 JSON 序列化再解析清除所有 undefined 欄位
       const clean = JSON.parse(JSON.stringify(DB));
       fbRef.set(clean).catch(err=>{
         console.warn('Firebase 寫入失敗', err);
@@ -1098,9 +1117,7 @@ function _doGetPassword(r, cls, padded, person, lockId) {
         }
 
         if(pwd) {
-          // ✅ 派發密碼成功 → 立即歸還（關窗即可，不需按鈕）
-          markReturnedByPwd();
-
+          // ✅ 派發密碼成功 → 先顯示視窗，再標記為可借用（避免 render 干擾視窗）
           showM(`<div class="mt" style="text-align:center;font-size:18px;padding-bottom:.75rem">✅ 借用完成</div>
             <div style="text-align:center;padding:.5rem 0 1rem">
               <div style="font-size:15px;font-weight:500;color:var(--AC);margin-bottom:.75rem">${escHtml(roomName)}｜${escHtml(cls)} ${escHtml(padded)}號 ${escHtml(person.name)}</div>
@@ -1116,6 +1133,8 @@ function _doGetPassword(r, cls, padded, person, lockId) {
             <div class="ma" style="justify-content:center">
               <button class="btn btn-p" onclick="closeM()" style="min-width:120px;font-size:15px;padding:10px 20px">關閉</button>
             </div>`);
+          // 視窗顯示後才執行歸還與畫面更新
+          setTimeout(()=>{ markReturnedByPwd(); }, 50);
 
         } else {
           // 沒有密碼 → 實體鑰匙模式（塗鴉未連線或該鎖不支援）
@@ -1230,10 +1249,13 @@ function startCam(){
 }
 function takePhoto(){
   const v2=document.getElementById('camv');if(!v2)return;
+  const maxW=480, maxH=360;
+  const vw=v2.videoWidth||640, vh=v2.videoHeight||480;
+  const scale=Math.min(maxW/vw, maxH/vh, 1);
   const c=document.createElement('canvas');
-  c.width=v2.videoWidth||640;c.height=v2.videoHeight||480;
-  c.getContext('2d').drawImage(v2,0,0);
-  cp=c.toDataURL('image/jpeg',.82);
+  c.width=Math.round(vw*scale); c.height=Math.round(vh*scale);
+  c.getContext('2d').drawImage(v2,0,0,c.width,c.height);
+  cp=c.toDataURL('image/jpeg',.65);
   stopCam();
   const _wrap=document.getElementById('camwrap');
   if(_wrap)_wrap.innerHTML='<img src="'+cp+'" alt="歸還照片" style="width:100%;height:100%;object-fit:cover">';
@@ -1902,10 +1924,14 @@ function startCamB(){
 }
 function takePhotoB(){
   const v2=document.getElementById('camv-b');if(!v2)return;
+  // 壓縮至最大 480px 寬，大幅減少 localStorage 佔用
+  const maxW=480, maxH=360;
+  const vw=v2.videoWidth||640, vh=v2.videoHeight||480;
+  const scale=Math.min(maxW/vw, maxH/vh, 1);
   const c=document.createElement('canvas');
-  c.width=v2.videoWidth||640;c.height=v2.videoHeight||480;
-  c.getContext('2d').drawImage(v2,0,0);
-  cpBorrow=c.toDataURL('image/jpeg',.82);
+  c.width=Math.round(vw*scale); c.height=Math.round(vh*scale);
+  c.getContext('2d').drawImage(v2,0,0,c.width,c.height);
+  cpBorrow=c.toDataURL('image/jpeg',.65); // 品質 0.65，約 20-40KB
   if(vsBorrow){vsBorrow.getTracks().forEach(t=>t.stop());vsBorrow=null;}
   const wrap=document.getElementById('camwrap-b');
   if(wrap)wrap.innerHTML='<img src="'+cpBorrow+'" alt="借用照片" style="width:100%;height:100%;object-fit:cover">';
