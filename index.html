@@ -300,6 +300,11 @@ tr.dg-src{opacity:.35}
         </div>
       </div>
       <div class="alert ai" style="font-size:12px;margin-bottom:1rem">拖曳 ⠿ 調整順序；勾選「禁止借用」鑰匙不開放借出</div>
+      <div class="alert aw" style="font-size:12px;margin-bottom:1rem">
+        🔑 <strong>塗鴉 Lock ID</strong>：填入塗鴉（涂鴉）App 中的裝置 ID，例如 <code style="background:#f5e8c8;padding:1px 5px;border-radius:3px;font-family:monospace">104</code>。<br>
+        有<strong>兩道門</strong>的琴房請用逗號分隔，例如 <code style="background:#f5e8c8;padding:1px 5px;border-radius:3px;font-family:monospace">104,104單</code>（借用時會讓學生選擇進哪道門）。<br>
+        <strong>留空</strong>＝實體鑰匙模式，借用成功後需填寫歸還登記。
+      </div>
       <div id="rmgmt"></div>
     </div>
     <div id="adm-hist" class="ap">
@@ -917,32 +922,26 @@ function confBorrow(id){
   nkReset('bn');
   saveDB();renderStats();renderRooms();
   closeM();
-  // 房間名稱對應 Firebase lockId（含多道門設定）
-  const ROOM_TO_LOCK = {
-    '樂團教室':      [{label:'B1樂團門', id:'B1樂團'}],
-    '排練教室':      [{label:'B1排練教室門', id:'B1排練教室'}],
-    '101':           [{label:'外門 (101)', id:'101'}, {label:'單間門 (101單間)', id:'101單間'}],
-    '102':           [{label:'外門 (102)', id:'102'}, {label:'單間門 (102單間)', id:'102單間'}],
-    '104':           [{label:'外門 (104)', id:'104'}, {label:'單間門 (104單)', id:'104單'}],
-    '105室內樂教室': [{label:'105室內樂教室門', id:'105'}],
-    '105室內樂 教室': [{label:'105室內樂教室門', id:'105'}],
-    '二樓遙控器':    [{label:'室內樂教室門', id:'室內樂教室'}],
-    '106':           [{label:'106門', id:'106'}],
-    '209展演廳':     [{label:'209展演廳門', id:'209展演廳'}],
-    '210錄音室':     [{label:'210錄音室門', id:'210錄音室'}],
-    '211':           [{label:'外門 (211)', id:'211'}, {label:'單間門 (211單間)', id:'211單間'}],
-    '212':           [{label:'外門 (212新)', id:'212新'}, {label:'單間門 (212單)', id:'212單'}],
-    '多功能教室':    [{label:'多功能教室門', id:'多功能'}],
-    '演一莊':        [{label:'演一莊門', id:'演一莊'}],
-    '音一莊':        [{label:'音一莊門', id:'音一莊'}],
-    '音二莊':        [{label:'音二莊門', id:'音二莊'}],
-    '音三莊':        [{label:'音三莊門', id:'音三莊'}],
-  };
-  // 正規化查詢（去除空白，嘗試多種寫法）
-  const lockOptions = ROOM_TO_LOCK[r.name]
-    || ROOM_TO_LOCK[r.name.replace(/\s/g,'')]
-    || ROOM_TO_LOCK[r.name.trim()]
-    || [{label: r.name+'門', id: r.name}];
+  // 從琴房資料中讀取 lockIds（後台「琴房管理」設定的塗鴉 Lock ID）
+  const rawLockIds = Array.isArray(r.lockIds) ? r.lockIds.filter(Boolean) : [];
+
+  if(rawLockIds.length === 0) {
+    // 沒有設定 lockIds → 實體鑰匙模式，直接顯示「請自取鑰匙」
+    showM(`<div class="mt" style="text-align:center;font-size:18px;padding-bottom:.75rem">✅ 借用完成</div>
+      <div style="text-align:center;padding:.5rem 0 1rem">
+        <div style="font-size:15px;font-weight:500;color:var(--AC);margin-bottom:.5rem">${escHtml(r.name)}｜${escHtml(cls)} ${escHtml(padded)}號 ${escHtml(person.name)}</div>
+        <div style="background:var(--Gl);border:1px solid var(--Gb);border-radius:var(--r);padding:1rem;margin:.75rem 0;color:var(--G);font-size:14px;line-height:1.8">
+          📦 請至鑰匙存放處<strong>自取鑰匙</strong><br>🚪 開完門後請<strong>填寫歸還登記</strong>
+        </div>
+      </div>
+      <div class="ma" style="justify-content:center"><button class="btn btn-p" onclick="closeM()" style="min-width:100px">我知道了</button></div>`);
+    return;
+  }
+
+  const lockOptions = rawLockIds.map((lid, i) => ({
+    label: rawLockIds.length === 1 ? r.name+'門' : r.name+(i===0?'（外門）':'（單間）'),
+    id: lid
+  }));
 
   // 只有一道門直接發密碼，多道門先讓使用者選
   if(lockOptions.length === 1) {
@@ -952,7 +951,7 @@ function confBorrow(id){
     const doorHtml = lockOptions.map((opt,i) =>
       `<label class="rl" style="cursor:pointer">
         <input type="radio" name="door-sel" value="${escHtml(opt.id)}" ${i===0?'checked':''}>
-        🚪 ${escHtml(opt.label)}
+        🚪 ${escHtml(opt.label)} <span style="font-size:11px;color:var(--mut);font-family:monospace">（${escHtml(opt.id)}）</span>
       </label>`
     ).join('');
     closeM();
@@ -971,6 +970,7 @@ function confBorrow(id){
 function _doGetPassword(r, cls, padded, person, lockId) {
   // r 可能是 room 物件或 room name 字串
   const roomName = typeof r === 'string' ? r.replace('_room','') : r.name;
+  const roomId   = typeof r === 'string' ? null : r.id;
   showM(`<div class="mt" style="text-align:center;font-size:18px;padding-bottom:.75rem">🔑 取得門鎖密碼中...</div>
     <div style="text-align:center;padding:1rem;color:var(--mut)">請稍候...</div>`);
   try {
@@ -979,21 +979,79 @@ function _doGetPassword(r, cls, padded, person, lockId) {
       .then(result => {
         closeM();
         const pwd = result.data && result.data.password ? result.data.password : null;
-        showM(`<div class="mt" style="text-align:center;font-size:18px;padding-bottom:.75rem">✅ 借用完成</div>
-          <div style="text-align:center;padding:.5rem 0 1rem">
-            <div style="font-size:15px;font-weight:500;color:var(--AC);margin-bottom:.75rem">${escHtml(roomName)}｜${escHtml(cls)} ${escHtml(padded)}號 ${escHtml(person.name)}</div>
-            ${pwd ? `<div style="background:var(--Bl);border:2px solid var(--Bb);border-radius:var(--rl);padding:1.25rem;margin:.75rem 0">
-              <div style="font-size:12px;color:var(--B);font-weight:500;margin-bottom:.5rem">🔐 門鎖臨時密碼（10 分鐘內有效）</div>
-              <div style="font-size:36px;font-weight:900;font-family:'IBM Plex Mono',monospace;color:var(--AC);letter-spacing:.15em">${pwd}</div>
-              <div style="font-size:11px;color:var(--mut);margin-top:.5rem">請在時效內輸入密碼開門</div>
-            </div>` : `<div style="background:var(--Gl);border:1px solid var(--Gb);border-radius:var(--r);padding:1rem;margin:.75rem 0;color:var(--G);font-size:14px">
-              📦 請至鑰匙存放處自取鑰匙
-            </div>`}
-            <div style="background:var(--Al);border:1px solid var(--Ab);border-radius:var(--r);padding:.75rem 1rem;color:var(--A);font-size:13px">
-              🚪 開完門後請<strong>立即歸還鑰匙</strong>
+
+        // 一鍵完成：標記此琴房為可借用（無需填歸還登記）
+        function markReturnedByPwd(){
+          if(!roomId) return;
+          const room = DB.rooms.find(x=>x.id===roomId);
+          if(!room||room.status!=='bw') return;
+          const h = DB.history.find(x=>x.rid===roomId&&!x.returnTime);
+          if(h){h.returnTime=ts();h.note='密碼開門自動歸還';}
+          room.status='av'; delete room.borrower;
+          saveDB(); renderStats(); renderRooms();
+          closeM();
+          showT(roomName+' 已標記為可借用','ts');
+        }
+
+        if(pwd) {
+          // 有密碼 → 塗鴉電子鎖模式：顯示密碼 + 一鍵完成按鈕，10分鐘後自動歸還
+          let countdown = 600; // 10 min
+          let timer;
+          function startCountdown(){
+            timer = setInterval(()=>{
+              countdown--;
+              const el = document.getElementById('pwd-countdown');
+              if(el) el.textContent = Math.floor(countdown/60)+'分'+String(countdown%60).padStart(2,'0')+'秒';
+              if(countdown <= 0){
+                clearInterval(timer);
+                markReturnedByPwd();
+              }
+            }, 1000);
+          }
+          showM(`<div class="mt" style="text-align:center;font-size:18px;padding-bottom:.75rem">✅ 借用完成</div>
+            <div style="text-align:center;padding:.5rem 0 1rem">
+              <div style="font-size:15px;font-weight:500;color:var(--AC);margin-bottom:.75rem">${escHtml(roomName)}｜${escHtml(cls)} ${escHtml(padded)}號 ${escHtml(person.name)}</div>
+              <div style="background:var(--Bl);border:2px solid var(--Bb);border-radius:var(--rl);padding:1.25rem;margin:.75rem 0">
+                <div style="font-size:12px;color:var(--B);font-weight:500;margin-bottom:.5rem">🔐 門鎖臨時密碼</div>
+                <div style="font-size:36px;font-weight:900;font-family:'IBM Plex Mono',monospace;color:var(--AC);letter-spacing:.15em">${pwd}</div>
+                <div style="font-size:12px;color:var(--mut);margin-top:.5rem">密碼有效倒數：<span id="pwd-countdown" style="font-family:monospace;color:var(--R);font-weight:600">10分00秒</span></div>
+              </div>
+              <div style="background:var(--Gl);border:1px solid var(--Gb);border-radius:var(--r);padding:.75rem 1rem;color:var(--G);font-size:13px;margin-bottom:.5rem">
+                ✅ 輸入密碼開門後，點下方按鈕即完成，<strong>無需填寫歸還登記</strong>
+              </div>
             </div>
-          </div>
-          <div class="ma" style="justify-content:center"><button class="btn btn-p" onclick="closeM()" style="min-width:100px">我知道了</button></div>`);
+            <div class="ma" style="justify-content:center">
+              <button class="btn btn-s btn-full" onclick="(function(){clearInterval(window._pwdTimer);window._pwdTimer=null;markReturnedByPwd();})()" style="font-size:15px;padding:12px">
+                🚪 我已開門完成，標記為可借用
+              </button>
+            </div>`);
+          // 暴露給 inline onclick
+          window.markReturnedByPwd = markReturnedByPwd;
+          window._pwdTimer = null;
+          setTimeout(()=>{ window._pwdTimer = setInterval(()=>{
+            countdown--;
+            const el = document.getElementById('pwd-countdown');
+            if(el) el.textContent = Math.floor(countdown/60)+'分'+String(countdown%60).padStart(2,'0')+'秒';
+            if(countdown <= 0){
+              clearInterval(window._pwdTimer);
+              markReturnedByPwd();
+            }
+          }, 1000); }, 50);
+
+        } else {
+          // 沒有密碼 → 實體鑰匙模式（塗鴉未連線或該鎖不支援）
+          showM(`<div class="mt" style="text-align:center;font-size:18px;padding-bottom:.75rem">✅ 借用完成</div>
+            <div style="text-align:center;padding:.5rem 0 1rem">
+              <div style="font-size:15px;font-weight:500;color:var(--AC);margin-bottom:.5rem">${escHtml(roomName)}｜${escHtml(cls)} ${escHtml(padded)}號 ${escHtml(person.name)}</div>
+              <div style="background:var(--Gl);border:1px solid var(--Gb);border-radius:var(--r);padding:1rem;margin:.75rem 0;color:var(--G);font-size:14px;line-height:1.8">
+                📦 請至鑰匙存放處<strong>自取鑰匙</strong><br>🚪 開完門後請<strong>填寫歸還登記</strong>
+              </div>
+              <div style="background:var(--Al);border:1px solid var(--Ab);border-radius:var(--r);padding:.5rem 1rem;color:var(--A);font-size:12px">
+                ⚠ 門鎖未回傳密碼，請確認 Lock ID 是否正確（後台琴房管理可修改）
+              </div>
+            </div>
+            <div class="ma" style="justify-content:center"><button class="btn btn-p" onclick="closeM()" style="min-width:100px">我知道了</button></div>`);
+        }
       })
       .catch(err => {
         closeM();
@@ -1002,7 +1060,10 @@ function _doGetPassword(r, cls, padded, person, lockId) {
           <div style="text-align:center;padding:.5rem 0 1rem">
             <div style="font-size:15px;font-weight:500;color:var(--AC);margin-bottom:.5rem">${escHtml(roomName)}｜${escHtml(cls)} ${escHtml(padded)}號 ${escHtml(person.name)}</div>
             <div style="background:var(--Gl);border:1px solid var(--Gb);border-radius:var(--r);padding:1rem;margin:.75rem 0;color:var(--G);font-size:14px;line-height:1.8">
-              📦 請至鑰匙存放處<strong>自取鑰匙</strong><br>🚪 開完門後請<strong>立即歸還鑰匙</strong>
+              📦 請至鑰匙存放處<strong>自取鑰匙</strong><br>🚪 開完門後請<strong>填寫歸還登記</strong>
+            </div>
+            <div style="background:var(--Rl);border:1px solid var(--Rb);border-radius:var(--r);padding:.5rem 1rem;color:var(--R);font-size:12px;margin-top:.25rem">
+              ✗ 連線失敗（${escHtml(err.message||'未知錯誤')}）
             </div>
           </div>
           <div class="ma" style="justify-content:center"><button class="btn btn-p" onclick="closeM()" style="min-width:100px">我知道了</button></div>`);
@@ -1017,7 +1078,6 @@ function _doGetPassword(r, cls, padded, person, lockId) {
       <div class="ma" style="justify-content:center"><button class="btn btn-p" onclick="closeM()">我知道了</button></div>`);
   }
 }
-// placeholder to close confBorrow - actual closing brace is above
 
 /* ═══ RETURN MODAL ═══ */
 function openRetM(r){
@@ -1437,7 +1497,7 @@ function renderRMgmt(){
         '<button class="btn btn-o btn-xs" onclick="openRnFloor('+Q+fe+Q+')">✏ 改名</button>'+
         '<button class="btn btn-d btn-xs" onclick="delFloor('+Q+fe+Q+')">刪除</button>'+
       '</div>'+
-      '<div class="tc"><table><thead><tr><th style="width:36px"></th><th>名稱</th><th>狀態</th><th>禁止借用</th><th>操作</th></tr></thead><tbody>';
+      '<div class="tc"><table><thead><tr><th style="width:36px"></th><th>名稱</th><th>狀態</th><th>禁止借用</th><th style="min-width:180px">塗鴉 Lock ID（逗號分多門）</th><th>操作</th></tr></thead><tbody>';
     rooms.forEach(function(r){
       var sc=r.status==='av'?'bav':r.status==='bw'?'bbw':'brp';
       var st=r.status==='av'?'可借用':r.status==='bw'?'借用中':'維修中';
@@ -1448,6 +1508,9 @@ function renderRMgmt(){
         '<td style="font-family:monospace;font-weight:500">'+escHtml(r.name)+'</td>'+
         '<td><span class="rb '+sc+'">'+st+'</span></td>'+
         '<td><input type="checkbox" '+(r.kd?'checked':'')+' onchange="toggleKD('+Q+rid+Q+',this.checked)" style="width:16px;height:16px;accent-color:var(--R)"></td>'+
+        '<td><input type="text" value="'+escHtml((r.lockIds||[]).join(','))+'" placeholder="例：104 或 104,104單"'+
+          ' style="font-size:12px;padding:4px 7px;width:100%;font-family:monospace"'+
+          ' onchange="setRoomLockIds('+Q+rid+Q+',this.value)" title="留空=實體鑰匙；多個門用逗號分隔"></td>'+
         '<td style="display:flex;gap:4px;flex-wrap:wrap">'+
           '<button class="btn btn-o btn-xs" onclick="openRnRoom('+Q+rid+Q+')">✏</button>';
       if(r.status==='bw')html+='<button class="btn btn-xs" style="color:var(--R);border:1px solid var(--Rb);background:transparent" onclick="clearBorrow('+Q+rid+Q+')">🗑 清除借用</button>';
@@ -1481,7 +1544,7 @@ function openRnFloor(f){showM(`<div class="mt">✏ 修改樓層名稱</div><div 
 function rnFloor(old){const n=document.getElementById('rfl')?.value?.trim();if(!n||n===old){closeM();return;}if(DB.floors.includes(n)){showT('已存在','tw2');return;}DB.floors[DB.floors.indexOf(old)]=n;DB.rooms.forEach(r=>{if(r.floor===old)r.floor=n;});if(CFL===old)CFL=n;saveDB();closeM();renderRMgmt();renderFT();renderRooms();}
 function delFloor(f){if(DB.rooms.filter(r=>r.floor===f).some(r=>r.status==='bw')){showT('有借用中琴房','tw2');return;}if(!confirm(`確認刪除樓層「${f}」？`))return;DB.floors=DB.floors.filter(x=>x!==f);DB.rooms=DB.rooms.filter(r=>r.floor!==f);if(CFL===f)CFL=DB.floors[0]||'';saveDB();renderRMgmt();renderFT();renderRooms();renderStats();}
 function openAddRoom(){showM(`<div class="mt">+ 新增琴房</div><div class="fg"><label class="fl">樓層</label><select id="arl">${DB.floors.map(f=>`<option value="${f}">${f}</option>`).join('')}</select></div><div class="fg"><label class="fl">琴房名稱</label><input type="text" id="arn" placeholder="例：106"></div><div class="ma"><button class="btn btn-o" onclick="closeM()">取消</button><button class="btn btn-p" onclick="addRoom()">確認</button></div>`);}
-function addRoom(){const fl=v('arl'),n=document.getElementById('arn')?.value?.trim();if(!n){showT('請輸入名稱','tw2');return;}const mx=Math.max(0,...DB.rooms.filter(r=>r.floor===fl).map(r=>r.order||0));DB.rooms.push({id:'r'+Date.now(),floor:fl,name:n,status:'av',kd:false,order:mx+1});saveDB();closeM();renderRMgmt();renderFT();renderRooms();renderStats();}
+function addRoom(){const fl=v('arl'),n=document.getElementById('arn')?.value?.trim();if(!n){showT('請輸入名稱','tw2');return;}const mx=Math.max(0,...DB.rooms.filter(r=>r.floor===fl).map(r=>r.order||0));DB.rooms.push({id:'r'+Date.now(),floor:fl,name:n,status:'av',kd:false,lockIds:[],order:mx+1});saveDB();closeM();renderRMgmt();renderFT();renderRooms();renderStats();}
 function setRpair(id){const r=DB.rooms.find(x=>x.id===id);if(r.status==='bw'){showT('借用中','tw2');return;}r.status='rp';r.issue='人工標記維修';saveDB();renderRMgmt();renderRooms();renderStats();}
 function setAvail(id){const r=DB.rooms.find(x=>x.id===id);r.status='av';delete r.issue;saveDB();renderRMgmt();renderRooms();renderStats();}
 function clearBorrow(id){
@@ -1496,6 +1559,14 @@ function clearBorrow(id){
   saveDB();renderRMgmt();renderRooms();renderStats();showT(r.name+' 借用已清除','ti');
 }
 function delRoom(id){const r=DB.rooms.find(x=>x.id===id);if(r.status==='bw'){showT('借用中，無法刪除','tw2');return;}if(!confirm(`確認刪除「${r.name}」？`))return;DB.rooms=DB.rooms.filter(x=>x.id!==id);saveDB();renderRMgmt();renderFT();renderRooms();renderStats();}
+function setRoomLockIds(id, val){
+  const r=DB.rooms.find(x=>x.id===id);if(!r)return;
+  const ids=val.split(',').map(s=>s.trim()).filter(Boolean);
+  r.lockIds=ids;
+  saveDB();
+  if(ids.length>0) showT(`${r.name} Lock ID 已儲存：${ids.join(', ')}`,'ts');
+  else showT(`${r.name} 已設為實體鑰匙模式`,'ti');
+}
 
 /* ═══ ADMIN HISTORY ═══ */
 function popAHF(){const sel=document.getElementById('ah-room');if(!sel)return;if(!Array.isArray(DB.history))DB.history=[];const rooms=[...new Set(DB.history.map(h=>h.room))].sort();sel.innerHTML='<option value="">所有琴房</option>'+rooms.map(r=>`<option value="${r}">${r}</option>`).join('');}
