@@ -366,6 +366,7 @@ tr.dg-src{opacity:.35}
       <div class="si" id="nav-notice" onclick="aN('notice')">📢 公告說明</div>
       <div class="si" id="nav-accts" onclick="aN('accts')">🔐 帳號管理</div>
       <div class="si" id="nav-locks" onclick="aN('locks')">🔒 門鎖控制</div>
+      <div class="si dan" id="nav-maintain" onclick="aN('maintain')">🗑 系統維護</div>
     </div>
     <div class="dvd" style="margin:.5rem 0"></div>
     <div class="si" id="nav-mypw" onclick="aN('mypw')">🔑 修改密碼</div>
@@ -472,7 +473,49 @@ tr.dg-src{opacity:.35}
       </div>
       <div id="lock-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px"></div>
     </div>
-        <div id="adm-mypw" class="ap">
+    <div id="adm-maintain" class="ap">
+      <div class="tb"><h2>🗑 系統維護</h2></div>
+
+      <!-- 照片儲存狀態 -->
+      <div class="tc" style="padding:1.25rem;margin-bottom:1rem">
+        <div style="font-size:14px;font-weight:500;margin-bottom:.75rem">📊 照片儲存狀態</div>
+        <div id="photo-stats" style="font-size:13px;color:var(--mut);line-height:2">載入中...</div>
+      </div>
+
+      <!-- 自動刪除設定 -->
+      <div class="tc" style="padding:1.25rem;margin-bottom:1rem">
+        <div style="font-size:14px;font-weight:500;margin-bottom:.5rem">⏱ 自動刪除照片設定</div>
+        <div class="alert ai" style="font-size:12px;margin-bottom:.75rem">照片會定期自動從 Firebase Storage 刪除，保留文字紀錄不受影響。目前設定：每 <strong id="auto-del-days-show">5</strong> 天自動刪除一次。</div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <label style="font-size:13px;font-weight:500">保留天數：</label>
+          <input type="number" id="auto-del-days" min="1" max="30" value="5" style="width:80px;padding:6px 10px;border-radius:var(--r);border:1px solid var(--bdr);font-size:14px">
+          <span style="font-size:13px;color:var(--mut)">天後自動刪除照片</span>
+          <button class="btn btn-p btn-sm" onclick="saveAutoDelDays()">儲存設定</button>
+        </div>
+        <div style="font-size:12px;color:var(--mut);margin-top:.5rem" id="last-auto-del"></div>
+      </div>
+
+      <!-- 手動操作 -->
+      <div class="tc" style="padding:1.25rem;margin-bottom:1rem">
+        <div style="font-size:14px;font-weight:500;margin-bottom:.75rem">🧹 手動清除照片</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn btn-w" onclick="purgePhotosOlderThan(5)">🗑 刪除 5 天前照片</button>
+          <button class="btn btn-w" onclick="purgePhotosOlderThan(1)">🗑 刪除昨天前照片</button>
+          <button class="btn btn-d" onclick="purgeAllPhotos()">⚠ 刪除全部照片</button>
+        </div>
+        <div style="font-size:12px;color:var(--mut);margin-top:.75rem">※ 刪除後文字借還紀錄仍會保留，只有照片會移除。</div>
+      </div>
+
+      <!-- 危險區 -->
+      <div class="tc" style="padding:1.25rem;border:1.5px solid var(--Rb)">
+        <div style="font-size:14px;font-weight:500;color:var(--R);margin-bottom:.75rem">⚠ 危險操作</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn btn-d" onclick="purgeOldHistory()">🗑 刪除 15 天前的借還紀錄</button>
+          <button class="btn btn-d" onclick="purgeAllHistory()">🗑 清空所有歷史紀錄</button>
+        </div>
+        <div style="font-size:12px;color:var(--mut);margin-top:.75rem">※ 清空歷史紀錄無法復原，請謹慎操作。</div>
+      </div>
+    </div>
       <div class="tb"><h2>🔑 修改我的密碼</h2></div>
       <div style="max-width:360px">
         <div class="fg"><label class="fl">目前密碼</label><input type="password" id="cpw-old"></div>
@@ -492,6 +535,7 @@ tr.dg-src{opacity:.35}
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-functions-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 
 <script>
 /* ═══ FIREBASE CONFIG — 請填入你的設定 ═══ */
@@ -509,7 +553,7 @@ const firebaseConfig = {
 const SK='zjms_v4'; // localStorage fallback key
 
 // --- Firebase 初始化 ---
-let fbApp, fbDB, fbRef;
+let fbApp, fbDB, fbRef, fbStorage;
 let fbReady = false;
 let pendingSave = false;
 let saveTimer = null;
@@ -519,6 +563,7 @@ function initFirebase(){
     fbApp = firebase.initializeApp(firebaseConfig);
     fbDB  = firebase.database();
     fbRef = fbDB.ref('piano_system');
+    fbStorage = firebase.storage();
     // 即時監聽雲端資料變更（其他裝置操作時自動同步）
     fbRef.on('value', snapshot => {
       const raw = snapshot.val();
@@ -1255,16 +1300,22 @@ function takePhoto(){
   const c=document.createElement('canvas');
   c.width=Math.round(vw*scale); c.height=Math.round(vh*scale);
   c.getContext('2d').drawImage(v2,0,0,c.width,c.height);
-  cp=c.toDataURL('image/jpeg',.65);
+  const dataUrl=c.toDataURL('image/jpeg',.65);
+  cp=dataUrl;
   stopCam();
   const _wrap=document.getElementById('camwrap');
-  if(_wrap)_wrap.innerHTML='<img src="'+cp+'" alt="歸還照片" style="width:100%;height:100%;object-fit:cover">';
+  if(_wrap)_wrap.innerHTML='<img src="'+dataUrl+'" alt="歸還照片" style="width:100%;height:100%;object-fit:cover">';
   const _bsn=document.getElementById('bsn');if(_bsn)_bsn.style.display='none';
   const _brt=document.getElementById('brt');if(_brt)_brt.style.display='';
   const _bco=document.getElementById('bco');if(_bco)_bco.style.display='none';
   const _bcr=document.getElementById('bcr');
   if(_bcr){_bcr.disabled=false;_bcr.removeAttribute('disabled');}
-  const _cst=document.getElementById('cam-status');if(_cst)_cst.textContent='✅ 照片已拍攝，可確認歸還';
+  const _cst=document.getElementById('cam-status');if(_cst)_cst.textContent='✅ 照片上傳中...';
+  uploadPhotoToStorage(dataUrl,'return').then(url=>{
+    cp=url;
+    const st=document.getElementById('cam-status');
+    if(st) st.textContent = url.startsWith('http') ? '✅ 照片已上傳' : '✅ 照片已拍攝，可確認歸還';
+  });
 }
 function retake(){
   cp=null;
@@ -1438,6 +1489,7 @@ function aN(p){
   if(p==='notice'){const t=document.getElementById('notice-text');if(t)t.value=DB.notice||'';}
   if(p==='accts')renderAccts();
   if(p==='locks'){renderLockGrid();loadLockTime();}
+  if(p==='maintain'){renderMaintain();}
 }
 function renderAllAdm(){renderPplTbl();renderRMgmt();popAHF();renderAdmH();renderRepTbl();renderRTypes();renderBRsn();renderAccts();const t=document.getElementById('notice-text');if(t)t.value=DB.notice||'';}
 
@@ -1922,24 +1974,45 @@ function startCamB(){
     document.getElementById('cam-status-b').textContent='攝影機存取失敗：'+e.message;
   });
 }
+// ── 上傳照片到 Firebase Storage，回傳 URL ──
+async function uploadPhotoToStorage(dataUrl, pathPrefix){
+  if(!fbStorage) return dataUrl; // Storage 未初始化時 fallback
+  try{
+    const blob = await (await fetch(dataUrl)).blob();
+    const ts2 = Date.now();
+    const ref = fbStorage.ref(`photos/${pathPrefix}_${ts2}.jpg`);
+    await ref.put(blob, {contentType:'image/jpeg', customMetadata:{uploadedAt: new Date().toISOString()}});
+    return await ref.getDownloadURL();
+  }catch(e){
+    console.warn('Storage 上傳失敗，使用本機 base64:', e);
+    return dataUrl; // fallback
+  }
+}
+
 function takePhotoB(){
   const v2=document.getElementById('camv-b');if(!v2)return;
-  // 壓縮至最大 480px 寬，大幅減少 localStorage 佔用
   const maxW=480, maxH=360;
   const vw=v2.videoWidth||640, vh=v2.videoHeight||480;
   const scale=Math.min(maxW/vw, maxH/vh, 1);
   const c=document.createElement('canvas');
   c.width=Math.round(vw*scale); c.height=Math.round(vh*scale);
   c.getContext('2d').drawImage(v2,0,0,c.width,c.height);
-  cpBorrow=c.toDataURL('image/jpeg',.65); // 品質 0.65，約 20-40KB
+  const dataUrl=c.toDataURL('image/jpeg',.65);
+  cpBorrow=dataUrl; // 先存 base64 預覽用
   if(vsBorrow){vsBorrow.getTracks().forEach(t=>t.stop());vsBorrow=null;}
   const wrap=document.getElementById('camwrap-b');
-  if(wrap)wrap.innerHTML='<img src="'+cpBorrow+'" alt="借用照片" style="width:100%;height:100%;object-fit:cover">';
+  if(wrap)wrap.innerHTML='<img src="'+dataUrl+'" alt="借用照片" style="width:100%;height:100%;object-fit:cover">';
   document.getElementById('bsn-b').style.display='none';
   document.getElementById('brt-b').style.display='';
   document.getElementById('bco-b').style.display='none';
   const bcb=document.getElementById('bcb');if(bcb){bcb.disabled=false;bcb.removeAttribute('disabled');}
-  document.getElementById('cam-status-b').textContent='✅ 照片已拍攝，可確認借用';
+  document.getElementById('cam-status-b').textContent='✅ 照片已拍攝，上傳中...';
+  // 非同步上傳到 Storage
+  uploadPhotoToStorage(dataUrl,'borrow').then(url=>{
+    cpBorrow=url; // 換成 Storage URL（或保留 base64 fallback）
+    const st=document.getElementById('cam-status-b');
+    if(st) st.textContent = url.startsWith('http') ? '✅ 照片已上傳' : '✅ 照片已拍攝，可確認借用';
+  });
 }
 function retakeB(){
   cpBorrow=null;
@@ -1949,6 +2022,142 @@ function retakeB(){
   document.getElementById('camwrap-b').innerHTML='<div class="cam-ph"><div style="font-size:36px">📷</div><div style="font-size:13px;margin-top:6px">請點擊「開啟攝影機」</div></div>';
   document.getElementById('cam-status-b').textContent='尚未拍攝';
 }
+
+/* ═══ 系統維護 ═══ */
+
+// 取得自動刪除天數設定
+function getAutoDelDays(){ return parseInt(DB.settings?.photoAutoDel ?? 5); }
+
+function saveAutoDelDays(){
+  const d=parseInt(document.getElementById('auto-del-days').value)||5;
+  if(!DB.settings) DB.settings={};
+  DB.settings.photoAutoDel=d;
+  DB.settings.photoAutoDelSaved=new Date().toLocaleString('zh-TW');
+  saveDB();
+  document.getElementById('auto-del-days-show').textContent=d;
+  showT(`已設定：每 ${d} 天自動刪除照片`,'ts');
+  renderMaintain();
+}
+
+// 刪除 Storage 中超過 N 天的照片檔
+async function purgeStoragePhotosBefore(cutMs){
+  if(!fbStorage) return 0;
+  let count=0;
+  try{
+    const listResult = await fbStorage.ref('photos').listAll();
+    const dels = listResult.items.map(async item=>{
+      try{
+        const meta = await item.getMetadata();
+        const uploaded = new Date(meta.customMetadata?.uploadedAt || meta.timeCreated).getTime();
+        if(uploaded < cutMs){ await item.delete(); count++; }
+      }catch(e){ console.warn('刪除檔案失敗:', item.name, e); }
+    });
+    await Promise.all(dels);
+  }catch(e){ console.warn('Storage listAll 失敗:', e); }
+  return count;
+}
+
+// 清除 DB history 中的照片欄位（只清 base64，Storage URL 保留）
+function purgeDBPhotos(cutMs){
+  let count=0;
+  if(!DB.history) return count;
+  DB.history.forEach(h=>{
+    if(!h.photo) return;
+    const t=new Date(h.borrowTime||h.returnTime||0).getTime();
+    if(t < cutMs && h.photo.startsWith('data:')){
+      h.photo=null; count++;
+    }
+  });
+  return count;
+}
+
+async function purgePhotosOlderThan(days){
+  if(!confirm(`確認刪除 ${days} 天前的所有照片？\n文字紀錄不受影響。`)) return;
+  showT('刪除中...','ti');
+  const cut=Date.now()-days*86400000;
+  const [sc, dc] = await Promise.all([
+    purgeStoragePhotosBefore(cut),
+    Promise.resolve(purgeDBPhotos(cut))
+  ]);
+  saveDB();
+  showT(`已刪除 ${sc} 個 Storage 照片、${dc} 筆本機照片`,'ts');
+  renderMaintain();
+}
+
+async function purgeAllPhotos(){
+  if(!confirm('確認刪除全部照片？\n文字紀錄不受影響，此操作無法復原。')) return;
+  showT('刪除中...','ti');
+  const [sc, dc] = await Promise.all([
+    purgeStoragePhotosBefore(Date.now()+1),
+    Promise.resolve(purgeDBPhotos(Date.now()+1))
+  ]);
+  saveDB();
+  showT(`已刪除全部 ${sc} 個 Storage 照片、${dc} 筆本機照片`,'ts');
+  renderMaintain();
+}
+
+function purgeOldHistory(){
+  if(!confirm('確認刪除 15 天前的所有借還紀錄？此操作無法復原。')) return;
+  const cut=Date.now()-15*86400000;
+  const before=DB.history?.length||0;
+  DB.history=(DB.history||[]).filter(h=>{
+    const t=new Date(h.returnTime||h.borrowTime||0).getTime();
+    return isNaN(t)||t>=cut;
+  });
+  const removed=before-DB.history.length;
+  saveDB(); renderMaintain();
+  showT(`已刪除 ${removed} 筆舊紀錄`,'ts');
+}
+
+function purgeAllHistory(){
+  if(!confirm('確認清空所有歷史借還紀錄？此操作無法復原！')) return;
+  if(!confirm('再次確認：清空後無法找回，確定嗎？')) return;
+  DB.history=[]; saveDB(); renderMaintain();
+  showT('已清空所有歷史紀錄','ts');
+}
+
+function renderMaintain(){
+  // 照片統計
+  const total=DB.history?.length||0;
+  const withPhoto=(DB.history||[]).filter(h=>h.photo).length;
+  const base64Count=(DB.history||[]).filter(h=>h.photo&&h.photo.startsWith('data:')).length;
+  const urlCount=(DB.history||[]).filter(h=>h.photo&&h.photo.startsWith('http')).length;
+  const el=document.getElementById('photo-stats');
+  if(el) el.innerHTML=
+    `總借還紀錄：<strong>${total}</strong> 筆　｜　有照片：<strong>${withPhoto}</strong> 筆<br>`+
+    `Storage 雲端照片：<strong>${urlCount}</strong> 筆　｜　本機 base64 照片（舊格式）：<strong>${base64Count}</strong> 筆`;
+
+  // 自動刪除設定
+  const days=getAutoDelDays();
+  const inp=document.getElementById('auto-del-days');
+  if(inp) inp.value=days;
+  const show=document.getElementById('auto-del-days-show');
+  if(show) show.textContent=days;
+  const lastEl=document.getElementById('last-auto-del');
+  if(lastEl) lastEl.textContent=DB.settings?.lastAutoDelRun
+    ? `上次自動刪除：${DB.settings.lastAutoDelRun}`:'尚未執行過自動刪除';
+}
+
+// 自動刪除排程：網頁開啟時檢查，每小時再檢查一次
+async function checkAutoDelete(){
+  const days=getAutoDelDays();
+  const lastRun=DB.settings?.lastAutoDelAt||0;
+  const intervalMs=days*86400000;
+  if(Date.now()-lastRun < intervalMs) return;
+  console.log(`[AutoDel] 執行自動刪除（${days}天前）`);
+  const cut=Date.now()-intervalMs;
+  await purgeStoragePhotosBefore(cut);
+  purgeDBPhotos(cut);
+  if(!DB.settings) DB.settings={};
+  DB.settings.lastAutoDelAt=Date.now();
+  DB.settings.lastAutoDelRun=new Date().toLocaleString('zh-TW');
+  saveDB();
+  console.log('[AutoDel] 完成');
+}
+
+// 啟動時 + 每小時執行一次
+setTimeout(checkAutoDelete, 5000);
+setInterval(checkAutoDelete, 3600000);
 
 /* ═══ 門鎖控制 ═══ */
 const ADMIN_KEY = 'musickey2024';
