@@ -411,6 +411,9 @@ tr.dg-src{opacity:.35}
         <div class="ta">
           <select id="ah-room" onchange="renderAdmH()" style="width:120px"><option value="">所有琴房</option></select>
           <input type="text" id="ah-q" placeholder="搜尋..." style="width:160px" oninput="renderAdmH()">
+          <button class="btn btn-o btn-sm" onclick="ahSelectAll()">☑ 全選</button>
+          <button class="btn btn-d btn-sm" onclick="ahDeleteSelected()">🗑 刪除勾選</button>
+          <button class="btn btn-d btn-sm" onclick="ahDeleteAll()">⚠ 刪除全部篩選結果</button>
         </div>
       </div>
       <div class="tc"><div class="tw" id="ah-tbl"></div></div>
@@ -462,11 +465,22 @@ tr.dg-src{opacity:.35}
           <button class="btn btn-d btn-sm" onclick="lockBatchAction('lock')">🔒 全部上鎖</button>
         </div>
       </div>
-      <div style="background:var(--sur);border:1px solid var(--bdr);border-radius:var(--rl);padding:1rem;margin-bottom:1rem;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-        <span style="font-size:13px;font-weight:500">⏰ 每日自動上鎖時間：</span>
-        <input type="time" id="lock-time-input" style="width:130px;padding:6px 10px;border-radius:var(--r);border:1px solid var(--bdr);font-size:14px" value="22:00">
-        <button class="btn btn-p btn-sm" onclick="saveLockTime()">儲存設定</button>
-        <span id="lock-time-status" style="font-size:12px;color:var(--mut)"></span>
+      <div style="background:var(--sur);border:1px solid var(--bdr);border-radius:var(--rl);padding:1rem;margin-bottom:1rem">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:.75rem">
+          <span style="font-size:13px;font-weight:500">⏰ 每日自動上鎖</span>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+            <input type="checkbox" id="auto-lock-enabled" onchange="saveAutoLockEnabled(this.checked)"
+              style="width:18px;height:18px;accent-color:var(--G);cursor:pointer">
+            <span id="auto-lock-enabled-label" style="font-size:13px;color:var(--mut)">載入中...</span>
+          </label>
+        </div>
+        <div id="auto-lock-time-row" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <span style="font-size:13px;color:var(--mut)">上鎖時間：</span>
+          <input type="time" id="lock-time-input" style="width:130px;padding:6px 10px;border-radius:var(--r);border:1px solid var(--bdr);font-size:14px" value="22:00">
+          <button class="btn btn-p btn-sm" onclick="saveLockTime()">儲存時間</button>
+          <span id="lock-time-status" style="font-size:12px;color:var(--mut)"></span>
+        </div>
+        <div style="font-size:12px;color:var(--mut);margin-top:.5rem">關閉後 Firebase Function 不會執行上鎖，不產生任何費用。</div>
       </div>
       <div class="alert aw" style="font-size:12px;margin-bottom:1rem">
         ⚠️ 遠端控制需要門鎖為 Online 狀態。藍牙鎖需在網關範圍內才能操作。
@@ -572,8 +586,12 @@ function initFirebase(){
         cleanOld(d); migratePeople(d); migrateBorrowReasons(d);
         DB = d;
         ensureDB();
-        // 同步本機備份
-        try{ localStorage.setItem(SK, JSON.stringify(DB)); }catch(e){}
+        // 同步本機備份（過濾照片避免空間不足）
+        try{
+          const lite=JSON.parse(JSON.stringify(DB));
+          if(lite.history) lite.history=lite.history.map(h=>h.photo&&h.photo.length>500?{...h,photo:'[photo]'}:h);
+          localStorage.setItem(SK, JSON.stringify(lite));
+        }catch(e){}
         // 更新畫面
         showNotice(); renderStats(); renderFT(); renderRooms();
         if(document.getElementById('page-hist')?.classList.contains('active')){ popPHF(); renderPubH(); }
@@ -1747,6 +1765,10 @@ function toggleRoomPwd(id, enabled){
 
 /* ═══ ADMIN HISTORY ═══ */
 function popAHF(){const sel=document.getElementById('ah-room');if(!sel)return;if(!Array.isArray(DB.history))DB.history=[];const rooms=[...new Set(DB.history.map(h=>h.room))].sort();sel.innerHTML='<option value="">所有琴房</option>'+rooms.map(r=>`<option value="${r}">${r}</option>`).join('');}
+
+// 目前篩選結果的 id 清單（供勾選刪除用）
+let _ahCurrentIds=[];
+
 function renderAdmH(){
   const q=document.getElementById('ah-q')?.value?.toLowerCase()||'';
   const rf=v('ah-room');
@@ -1755,11 +1777,13 @@ function renderAdmH(){
   if(rf)data=data.filter(h=>h.room===rf);
   if(q)data=data.filter(h=>h.cls?.toLowerCase().includes(q)||h.name?.includes(q)||h.seatNo?.includes(q));
   data.sort((a,b)=>(b.returnTime||b.borrowTime).localeCompare(a.returnTime||a.borrowTime));
+  _ahCurrentIds=data.map(h=>h.id);
   if(!data.length){document.getElementById('ah-tbl').innerHTML='<div style="padding:2rem;text-align:center;color:var(--mut)">無符合紀錄</div>';return;}
   const rows=data.slice(0,200).map(h=>{
     const ret=h.returner?`${h.returner.cls} ${h.returner.seatNo||''}號 ${h.returner.name}`
       :(h.note?`<span style="color:var(--mut);font-size:11px">${h.note}</span>`:'<span style="color:var(--mut)">—</span>');
     return`<tr>
+    <td style="text-align:center;width:32px"><input type="checkbox" class="ah-chk" data-id="${h.id}" style="width:15px;height:15px;accent-color:var(--R);cursor:pointer"></td>
     <td style="font-family:monospace;font-weight:500">${h.room}</td>
     <td>${h.cls}</td>
     <td style="font-family:monospace;color:var(--AC);text-align:center">${h.seatNo||'—'}</td>
@@ -1773,7 +1797,33 @@ function renderAdmH(){
       :'<span style="font-size:11px;color:var(--mut)">無</span>'}</td>
     <td><button class="btn btn-d btn-xs" onclick="delHist(${h.id})">刪除</button></td></tr>`;
   }).join('');
-  document.getElementById('ah-tbl').innerHTML=`<table><thead><tr><th>琴房</th><th>班級</th><th>座號</th><th>借用者</th><th>原因</th><th>借出</th><th>歸還</th><th>歸還者</th><th>照片</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+  document.getElementById('ah-tbl').innerHTML=`<table><thead><tr>
+    <th style="width:32px"><input type="checkbox" id="ah-chk-all" onchange="ahToggleAll(this.checked)" style="width:15px;height:15px;accent-color:var(--R);cursor:pointer"></th>
+    <th>琴房</th><th>班級</th><th>座號</th><th>借用者</th><th>原因</th><th>借出</th><th>歸還</th><th>歸還者</th><th>照片</th><th></th>
+  </tr></thead><tbody>${rows}</tbody></table>`;
+}
+function ahToggleAll(checked){
+  document.querySelectorAll('.ah-chk').forEach(c=>c.checked=checked);
+}
+function ahSelectAll(){
+  const allChk=document.getElementById('ah-chk-all');
+  if(allChk) allChk.checked=true;
+  document.querySelectorAll('.ah-chk').forEach(c=>c.checked=true);
+}
+function ahDeleteSelected(){
+  const ids=[...document.querySelectorAll('.ah-chk:checked')].map(c=>Number(c.dataset.id));
+  if(!ids.length){showT('請先勾選要刪除的紀錄','tw2');return;}
+  if(!confirm(`確認刪除勾選的 ${ids.length} 筆紀錄？此操作無法復原。`))return;
+  DB.history=(DB.history||[]).filter(h=>!ids.includes(h.id));
+  saveDB();popAHF();renderAdmH();showT(`已刪除 ${ids.length} 筆紀錄`,'ti');
+}
+function ahDeleteAll(){
+  if(!_ahCurrentIds.length){showT('目前無篩選結果','tw2');return;}
+  const label=v('ah-room')||document.getElementById('ah-q')?.value?'篩選結果':'所有';
+  if(!confirm(`確認刪除${label}的 ${_ahCurrentIds.length} 筆紀錄？此操作無法復原。`))return;
+  const idSet=new Set(_ahCurrentIds);
+  DB.history=(DB.history||[]).filter(h=>!idSet.has(h.id));
+  saveDB();popAHF();renderAdmH();showT(`已刪除 ${idSet.size} 筆紀錄`,'ti');
 }
 function delHist(id){
   if(!confirm('確認刪除此筆借還紀錄？此操作無法復原。'))return;
@@ -2138,14 +2188,16 @@ function renderMaintain(){
     ? `上次自動刪除：${DB.settings.lastAutoDelRun}`:'尚未執行過自動刪除';
 }
 
-// 自動刪除排程：網頁開啟時檢查，每小時再檢查一次
+// 自動刪除排程：網頁開啟時檢查，每小時再檢查「是否到期」，到期才真正執行 listAll
 async function checkAutoDelete(){
   const days=getAutoDelDays();
   const lastRun=DB.settings?.lastAutoDelAt||0;
   const intervalMs=days*86400000;
+  // 還沒到期就直接跳過，不呼叫任何 Storage API
   if(Date.now()-lastRun < intervalMs) return;
   console.log(`[AutoDel] 執行自動刪除（${days}天前）`);
   const cut=Date.now()-intervalMs;
+  // 只有真正到期時才呼叫 listAll（每 N 天最多一次）
   await purgeStoragePhotosBefore(cut);
   purgeDBPhotos(cut);
   if(!DB.settings) DB.settings={};
@@ -2155,54 +2207,49 @@ async function checkAutoDelete(){
   console.log('[AutoDel] 完成');
 }
 
-// 啟動時 + 每小時執行一次
+// 啟動時檢查一次（延遲 5 秒等 Firebase 連線），之後每 6 小時再檢查「是否到期」
+// 每次檢查只是比較時間戳，不呼叫 Storage，完全免費
 setTimeout(checkAutoDelete, 5000);
-setInterval(checkAutoDelete, 3600000);
+setInterval(checkAutoDelete, 6*3600000);
 
 /* ═══ 門鎖控制 ═══ */
 const ADMIN_KEY = 'musickey2024';
-const LOCKS = [
-  {id:'210錄音室',  name:'210 錄音室',  status:'online'},
-  {id:'209展演廳',  name:'209 展演廳',  status:'online'},
-  {id:'多功能',     name:'多功能',       status:'online'},
-  {id:'106',        name:'106',          status:'online'},
-  {id:'105',        name:'105',          status:'online'},
-  {id:'104',        name:'104',          status:'online'},
-  {id:'B1排練教室', name:'B1 排練教室', status:'online'},
-  {id:'演一莊',     name:'演一莊',       status:'online'},
-  {id:'104單',      name:'104單',        status:'online'},
-  {id:'211',        name:'211',          status:'online'},
-  {id:'音一莊',     name:'音一莊',       status:'online'},
-  {id:'室內樂教室', name:'室內樂教室',  status:'online'},
-  {id:'B1樂團',     name:'B1 樂團',     status:'online'},
-  {id:'212新',      name:'212新',        status:'online'},
-  {id:'102',        name:'102',          status:'offline'},
-  {id:'211單間',    name:'211 單間',    status:'offline'},
-  {id:'音二莊',     name:'音二莊',       status:'offline'},
-  {id:'音三莊',     name:'音三莊',       status:'offline'},
-  {id:'102單間',    name:'102 單間',    status:'offline'},
-  {id:'212單',      name:'212單',        status:'offline'},
-  {id:'101單間',    name:'101 單間',    status:'offline'},
-  {id:'101',        name:'101',          status:'offline'},
-];
+
+// 從琴房管理的 lockIds 動態產生門鎖清單，不再寫死
+function getLocks(){
+  const locks=[];
+  const seen=new Set();
+  (DB.rooms||[]).forEach(r=>{
+    (r.lockIds||[]).forEach(lid=>{
+      if(!lid||seen.has(lid)) return;
+      seen.add(lid);
+      locks.push({id:lid, name:r.name+(r.lockIds.length>1?' ('+lid+')':''), roomName:r.name});
+    });
+  });
+  return locks;
+}
 function renderLockGrid(){
   const grid=document.getElementById('lock-grid');
   if(!grid)return;
-  grid.innerHTML=LOCKS.map(lock=>`
+  const locks=getLocks();
+  if(!locks.length){
+    grid.innerHTML='<div style="color:var(--mut);font-size:13px;padding:1rem">尚未在「琴房管理」設定任何 Lock ID</div>';
+    return;
+  }
+  grid.innerHTML=locks.map(lock=>`
     <div style="background:var(--sur);border:1.5px solid var(--bdr);border-radius:var(--rl);padding:.875rem;">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-        <input type="checkbox" id="chk-${lock.id}" style="width:16px;height:16px;accent-color:var(--AC);flex-shrink:0">
-        <span style="font-size:15px;font-weight:700;font-family:'IBM Plex Mono',monospace;flex:1">${lock.name}</span>
-        <span style="font-size:11px;padding:2px 7px;border-radius:20px;font-weight:500;
-          ${lock.status==='online'?'background:var(--Gl);color:var(--G);border:1px solid var(--Gb)':'background:#f0f0f0;color:#888;border:1px solid #ddd'}">
-          ${lock.status==='online'?'● Online':'○ Offline'}
-        </span>
+        <input type="checkbox" id="chk-${escHtml(lock.id)}" style="width:16px;height:16px;accent-color:var(--AC);flex-shrink:0">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:15px;font-weight:700;font-family:'IBM Plex Mono',monospace">${escHtml(lock.name)}</div>
+          <div style="font-size:10px;color:var(--mut);font-family:monospace">${escHtml(lock.id)}</div>
+        </div>
       </div>
       <div style="display:flex;gap:6px;">
-        <button class="btn btn-s btn-sm" style="flex:1;font-size:12px" onclick="singleLockAction('${lock.id}','unlock')">🔓 解鎖</button>
-        <button class="btn btn-d btn-sm" style="flex:1;font-size:12px" onclick="singleLockAction('${lock.id}','lock')">🔒 上鎖</button>
+        <button class="btn btn-s btn-sm" style="flex:1;font-size:12px" onclick="singleLockAction('${escHtml(lock.id)}','unlock')">🔓 解鎖</button>
+        <button class="btn btn-d btn-sm" style="flex:1;font-size:12px" onclick="singleLockAction('${escHtml(lock.id)}','lock')">🔒 上鎖</button>
       </div>
-      <div id="lock-msg-${lock.id}" style="font-size:11px;color:var(--mut);margin-top:5px;min-height:15px;text-align:center;"></div>
+      <div id="lock-msg-${escHtml(lock.id)}" style="font-size:11px;color:var(--mut);margin-top:5px;min-height:15px;text-align:center;"></div>
     </div>
   `).join('');
 }
@@ -2215,16 +2262,17 @@ async function singleLockAction(lockId,action){
   catch(err){setLockMsg(lockId,'✗ 操作失敗','var(--R)');showT(lockId+' '+label+'失敗：'+err.message,'td2');console.error(err);}
 }
 async function lockBatchAction(action){
+  const locks=getLocks();
   const label=action==='unlock'?'解鎖':'上鎖';
-  if(!confirm('確認要對全部 '+LOCKS.length+' 個門鎖執行「'+label+'」？'))return;
+  if(!confirm('確認要對全部 '+locks.length+' 個門鎖執行「'+label+'」？'))return;
   showT('正在'+label+'全部門鎖...','ti');let ok=0,fail=0;
-  for(const lock of LOCKS){try{await callLockFn(action==='unlock'?'manualUnlock':'manualLock',lock.id);setLockMsg(lock.id,'✓ '+label+'成功','var(--G)');ok++;}catch(e){setLockMsg(lock.id,'✗ 失敗','var(--R)');fail++;}}
+  for(const lock of locks){try{await callLockFn(action==='unlock'?'manualUnlock':'manualLock',lock.id);setLockMsg(lock.id,'✓ '+label+'成功','var(--G)');ok++;}catch(e){setLockMsg(lock.id,'✗ 失敗','var(--R)');fail++;}}
   showT('完成：'+ok+' 成功，'+fail+' 失敗',ok>0?'ts':'td2');
 }
-function lockSelectAll(){LOCKS.forEach(l=>{const c=document.getElementById('chk-'+l.id);if(c)c.checked=true;});}
-function lockSelectNone(){LOCKS.forEach(l=>{const c=document.getElementById('chk-'+l.id);if(c)c.checked=false;});}
+function lockSelectAll(){getLocks().forEach(l=>{const c=document.getElementById('chk-'+l.id);if(c)c.checked=true;});}
+function lockSelectNone(){getLocks().forEach(l=>{const c=document.getElementById('chk-'+l.id);if(c)c.checked=false;});}
 async function lockBatchSelected(action){
-  const selected=LOCKS.filter(l=>{const c=document.getElementById('chk-'+l.id);return c&&c.checked;});
+  const selected=getLocks().filter(l=>{const c=document.getElementById('chk-'+l.id);return c&&c.checked;});
   if(!selected.length){showT('請先勾選門鎖','tw2');return;}
   const label=action==='unlock'?'解鎖':'上鎖';
   if(!confirm('確認要對 '+selected.length+' 個門鎖執行「'+label+'」？'))return;
@@ -2234,10 +2282,43 @@ async function lockBatchSelected(action){
 }
 function saveLockTime(){
   const t=document.getElementById('lock-time-input')?.value;if(!t){showT('請選擇時間','tw2');return;}
-  if(fbDB){fbDB.ref('settings/lockTime').set(t).then(()=>{const el=document.getElementById('lock-time-status');if(el)el.textContent='✓ 已設定為每天 '+t+' 上鎖';showT('上鎖時間已儲存：'+t,'ts');}).catch(()=>showT('儲存失敗','td2'));}
+  if(fbDB){fbDB.ref('settings/lockTime').set(t).then(()=>{
+    const el=document.getElementById('lock-time-status');
+    if(el)el.textContent='✓ 已設定為每天 '+t+' 上鎖';
+    showT('上鎖時間已儲存：'+t,'ts');
+  }).catch(()=>showT('儲存失敗','td2'));}
+}
+function saveAutoLockEnabled(enabled){
+  if(fbDB){fbDB.ref('settings/autoLockEnabled').set(enabled).then(()=>{
+    updateAutoLockUI(enabled);
+    showT(enabled?'每日自動上鎖已開啟':'每日自動上鎖已關閉',enabled?'ts':'ti');
+  }).catch(()=>showT('儲存失敗','td2'));}
+}
+function updateAutoLockUI(enabled){
+  const lbl=document.getElementById('auto-lock-enabled-label');
+  const row=document.getElementById('auto-lock-time-row');
+  const chk=document.getElementById('auto-lock-enabled');
+  if(lbl) lbl.textContent=enabled?'已開啟（Function 會執行）':'已關閉（Function 不執行）';
+  if(lbl) lbl.style.color=enabled?'var(--G)':'var(--mut)';
+  if(row) row.style.opacity=enabled?'1':'0.4';
+  if(chk) chk.checked=enabled;
 }
 function loadLockTime(){
-  if(fbDB){fbDB.ref('settings/lockTime').get().then(snap=>{if(snap.exists()){const t=snap.val();const inp=document.getElementById('lock-time-input');const el=document.getElementById('lock-time-status');if(inp)inp.value=t;if(el)el.textContent='目前設定：每天 '+t+' 上鎖';}});}
+  if(!fbDB) return;
+  fbDB.ref('settings/lockTime').get().then(snap=>{
+    if(snap.exists()){
+      const t=snap.val();
+      const inp=document.getElementById('lock-time-input');
+      const el=document.getElementById('lock-time-status');
+      if(inp)inp.value=t;
+      if(el)el.textContent='目前設定：每天 '+t+' 上鎖';
+    }
+  });
+  fbDB.ref('settings/autoLockEnabled').get().then(snap=>{
+    // 預設 false（未設定過 = 關閉）
+    const enabled = snap.exists() ? snap.val() : false;
+    updateAutoLockUI(enabled);
+  });
 }
 
 
