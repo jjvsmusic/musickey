@@ -1160,7 +1160,7 @@ function _doGetPassword(r, cls, padded, person, lockId) {
   showM(`<div class="mt" style="text-align:center;font-size:18px;padding-bottom:.75rem">🔑 取得門鎖密碼中...</div>
     <div style="text-align:center;padding:1rem;color:var(--mut)">請稍候...</div>`);
   try {
-    const fn = firebase.functions().httpsCallable('handleBooking');
+    const fn = firebase.app().functions('us-central1').httpsCallable('handleBooking');
     fn({lockId: lockId, userName: cls+' '+padded+'號 '+person.name, durationMinutes: 10})
       .then(result => {
         closeM();
@@ -2254,7 +2254,7 @@ function renderLockGrid(){
   `).join('');
 }
 function setLockMsg(lockId,msg,color){const el=document.getElementById('lock-msg-'+lockId);if(el){el.textContent=msg;el.style.color=color||'var(--mut)';}}
-async function callLockFn(fnName,lockId){const fn=firebase.functions().httpsCallable(fnName);const result=await fn({lockId,adminKey:ADMIN_KEY});return result.data;}
+async function callLockFn(fnName,lockId){const fn=firebase.app().functions('us-central1').httpsCallable(fnName);const result=await fn({lockId,adminKey:ADMIN_KEY});return result.data;}
 async function singleLockAction(lockId,action){
   const label=action==='unlock'?'解鎖':'上鎖';
   setLockMsg(lockId,'處理中...','var(--A)');
