@@ -366,7 +366,6 @@ tr.dg-src{opacity:.35}
       <div class="si" id="nav-notice" onclick="aN('notice')">📢 公告說明</div>
       <div class="si" id="nav-accts" onclick="aN('accts')">🔐 帳號管理</div>
       <div class="si" id="nav-locks" onclick="aN('locks')">🔒 門鎖控制</div>
-      <div class="si dan" id="nav-maintain" onclick="aN('maintain')">🗑 系統維護</div>
     </div>
     <div class="dvd" style="margin:.5rem 0"></div>
     <div class="si" id="nav-mypw" onclick="aN('mypw')">🔑 修改密碼</div>
@@ -411,9 +410,6 @@ tr.dg-src{opacity:.35}
         <div class="ta">
           <select id="ah-room" onchange="renderAdmH()" style="width:120px"><option value="">所有琴房</option></select>
           <input type="text" id="ah-q" placeholder="搜尋..." style="width:160px" oninput="renderAdmH()">
-          <button class="btn btn-o btn-sm" onclick="ahSelectAll()">☑ 全選</button>
-          <button class="btn btn-d btn-sm" onclick="ahDeleteSelected()">🗑 刪除勾選</button>
-          <button class="btn btn-d btn-sm" onclick="ahDeleteAll()">⚠ 刪除全部篩選結果</button>
         </div>
       </div>
       <div class="tc"><div class="tw" id="ah-tbl"></div></div>
@@ -465,71 +461,18 @@ tr.dg-src{opacity:.35}
           <button class="btn btn-d btn-sm" onclick="lockBatchAction('lock')">🔒 全部上鎖</button>
         </div>
       </div>
-      <div style="background:var(--sur);border:1px solid var(--bdr);border-radius:var(--rl);padding:1rem;margin-bottom:1rem">
-        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:.75rem">
-          <span style="font-size:13px;font-weight:500">⏰ 每日自動上鎖</span>
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-            <input type="checkbox" id="auto-lock-enabled" onchange="saveAutoLockEnabled(this.checked)"
-              style="width:18px;height:18px;accent-color:var(--G);cursor:pointer">
-            <span id="auto-lock-enabled-label" style="font-size:13px;color:var(--mut)">載入中...</span>
-          </label>
-        </div>
-        <div id="auto-lock-time-row" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-          <span style="font-size:13px;color:var(--mut)">上鎖時間：</span>
-          <input type="time" id="lock-time-input" style="width:130px;padding:6px 10px;border-radius:var(--r);border:1px solid var(--bdr);font-size:14px" value="22:00">
-          <button class="btn btn-p btn-sm" onclick="saveLockTime()">儲存時間</button>
-          <span id="lock-time-status" style="font-size:12px;color:var(--mut)"></span>
-        </div>
-        <div style="font-size:12px;color:var(--mut);margin-top:.5rem">關閉後 Firebase Function 不會執行上鎖，不產生任何費用。</div>
+      <div style="background:var(--sur);border:1px solid var(--bdr);border-radius:var(--rl);padding:1rem;margin-bottom:1rem;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <span style="font-size:13px;font-weight:500">⏰ 每日自動上鎖時間：</span>
+        <input type="time" id="lock-time-input" style="width:130px;padding:6px 10px;border-radius:var(--r);border:1px solid var(--bdr);font-size:14px" value="22:00">
+        <button class="btn btn-p btn-sm" onclick="saveLockTime()">儲存設定</button>
+        <span id="lock-time-status" style="font-size:12px;color:var(--mut)"></span>
       </div>
       <div class="alert aw" style="font-size:12px;margin-bottom:1rem">
         ⚠️ 遠端控制需要門鎖為 Online 狀態。藍牙鎖需在網關範圍內才能操作。
       </div>
       <div id="lock-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px"></div>
     </div>
-    <div id="adm-maintain" class="ap">
-      <div class="tb"><h2>🗑 系統維護</h2></div>
-
-      <!-- 照片儲存狀態 -->
-      <div class="tc" style="padding:1.25rem;margin-bottom:1rem">
-        <div style="font-size:14px;font-weight:500;margin-bottom:.75rem">📊 照片儲存狀態</div>
-        <div id="photo-stats" style="font-size:13px;color:var(--mut);line-height:2">載入中...</div>
-      </div>
-
-      <!-- 自動刪除設定 -->
-      <div class="tc" style="padding:1.25rem;margin-bottom:1rem">
-        <div style="font-size:14px;font-weight:500;margin-bottom:.5rem">⏱ 自動刪除照片設定</div>
-        <div class="alert ai" style="font-size:12px;margin-bottom:.75rem">照片會定期自動從 Firebase Storage 刪除，保留文字紀錄不受影響。目前設定：每 <strong id="auto-del-days-show">5</strong> 天自動刪除一次。</div>
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-          <label style="font-size:13px;font-weight:500">保留天數：</label>
-          <input type="number" id="auto-del-days" min="1" max="30" value="5" style="width:80px;padding:6px 10px;border-radius:var(--r);border:1px solid var(--bdr);font-size:14px">
-          <span style="font-size:13px;color:var(--mut)">天後自動刪除照片</span>
-          <button class="btn btn-p btn-sm" onclick="saveAutoDelDays()">儲存設定</button>
-        </div>
-        <div style="font-size:12px;color:var(--mut);margin-top:.5rem" id="last-auto-del"></div>
-      </div>
-
-      <!-- 手動操作 -->
-      <div class="tc" style="padding:1.25rem;margin-bottom:1rem">
-        <div style="font-size:14px;font-weight:500;margin-bottom:.75rem">🧹 手動清除照片</div>
-        <div style="display:flex;gap:10px;flex-wrap:wrap">
-          <button class="btn btn-w" onclick="purgePhotosOlderThan(5)">🗑 刪除 5 天前照片</button>
-          <button class="btn btn-w" onclick="purgePhotosOlderThan(1)">🗑 刪除昨天前照片</button>
-          <button class="btn btn-d" onclick="purgeAllPhotos()">⚠ 刪除全部照片</button>
-        </div>
-        <div style="font-size:12px;color:var(--mut);margin-top:.75rem">※ 刪除後文字借還紀錄仍會保留，只有照片會移除。</div>
-      </div>
-
-      <!-- 危險區 -->
-      <div class="tc" style="padding:1.25rem;border:1.5px solid var(--Rb)">
-        <div style="font-size:14px;font-weight:500;color:var(--R);margin-bottom:.75rem">⚠ 危險操作</div>
-        <div style="display:flex;gap:10px;flex-wrap:wrap">
-          <button class="btn btn-d" onclick="purgeOldHistory()">🗑 刪除 15 天前的借還紀錄</button>
-          <button class="btn btn-d" onclick="purgeAllHistory()">🗑 清空所有歷史紀錄</button>
-        </div>
-        <div style="font-size:12px;color:var(--mut);margin-top:.75rem">※ 清空歷史紀錄無法復原，請謹慎操作。</div>
-      </div>
-    </div>
+        <div id="adm-mypw" class="ap">
       <div class="tb"><h2>🔑 修改我的密碼</h2></div>
       <div style="max-width:360px">
         <div class="fg"><label class="fl">目前密碼</label><input type="password" id="cpw-old"></div>
@@ -549,7 +492,6 @@ tr.dg-src{opacity:.35}
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-functions-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 
 <script>
 /* ═══ FIREBASE CONFIG — 請填入你的設定 ═══ */
@@ -567,7 +509,7 @@ const firebaseConfig = {
 const SK='zjms_v4'; // localStorage fallback key
 
 // --- Firebase 初始化 ---
-let fbApp, fbDB, fbRef, fbStorage;
+let fbApp, fbDB, fbRef;
 let fbReady = false;
 let pendingSave = false;
 let saveTimer = null;
@@ -577,7 +519,6 @@ function initFirebase(){
     fbApp = firebase.initializeApp(firebaseConfig);
     fbDB  = firebase.database();
     fbRef = fbDB.ref('piano_system');
-    fbStorage = firebase.storage();
     // 即時監聽雲端資料變更（其他裝置操作時自動同步）
     fbRef.on('value', snapshot => {
       const raw = snapshot.val();
@@ -586,12 +527,8 @@ function initFirebase(){
         cleanOld(d); migratePeople(d); migrateBorrowReasons(d);
         DB = d;
         ensureDB();
-        // 同步本機備份（過濾照片避免空間不足）
-        try{
-          const lite=JSON.parse(JSON.stringify(DB));
-          if(lite.history) lite.history=lite.history.map(h=>h.photo&&h.photo.length>500?{...h,photo:'[photo]'}:h);
-          localStorage.setItem(SK, JSON.stringify(lite));
-        }catch(e){}
+        // 同步本機備份
+        try{ localStorage.setItem(SK, JSON.stringify(DB)); }catch(e){}
         // 更新畫面
         showNotice(); renderStats(); renderFT(); renderRooms();
         if(document.getElementById('page-hist')?.classList.contains('active')){ popPHF(); renderPubH(); }
@@ -1160,7 +1097,7 @@ function _doGetPassword(r, cls, padded, person, lockId) {
   showM(`<div class="mt" style="text-align:center;font-size:18px;padding-bottom:.75rem">🔑 取得門鎖密碼中...</div>
     <div style="text-align:center;padding:1rem;color:var(--mut)">請稍候...</div>`);
   try {
-    const fn = firebase.functions().httpsCallable('handleBooking');
+    const fn = firebase.app().functions('us-central1').httpsCallable('handleBooking');
     fn({lockId: lockId, userName: cls+' '+padded+'號 '+person.name, durationMinutes: 10})
       .then(result => {
         closeM();
@@ -1318,22 +1255,16 @@ function takePhoto(){
   const c=document.createElement('canvas');
   c.width=Math.round(vw*scale); c.height=Math.round(vh*scale);
   c.getContext('2d').drawImage(v2,0,0,c.width,c.height);
-  const dataUrl=c.toDataURL('image/jpeg',.65);
-  cp=dataUrl;
+  cp=c.toDataURL('image/jpeg',.65);
   stopCam();
   const _wrap=document.getElementById('camwrap');
-  if(_wrap)_wrap.innerHTML='<img src="'+dataUrl+'" alt="歸還照片" style="width:100%;height:100%;object-fit:cover">';
+  if(_wrap)_wrap.innerHTML='<img src="'+cp+'" alt="歸還照片" style="width:100%;height:100%;object-fit:cover">';
   const _bsn=document.getElementById('bsn');if(_bsn)_bsn.style.display='none';
   const _brt=document.getElementById('brt');if(_brt)_brt.style.display='';
   const _bco=document.getElementById('bco');if(_bco)_bco.style.display='none';
   const _bcr=document.getElementById('bcr');
   if(_bcr){_bcr.disabled=false;_bcr.removeAttribute('disabled');}
-  const _cst=document.getElementById('cam-status');if(_cst)_cst.textContent='✅ 照片上傳中...';
-  uploadPhotoToStorage(dataUrl,'return').then(url=>{
-    cp=url;
-    const st=document.getElementById('cam-status');
-    if(st) st.textContent = url.startsWith('http') ? '✅ 照片已上傳' : '✅ 照片已拍攝，可確認歸還';
-  });
+  const _cst=document.getElementById('cam-status');if(_cst)_cst.textContent='✅ 照片已拍攝，可確認歸還';
 }
 function retake(){
   cp=null;
@@ -1507,7 +1438,6 @@ function aN(p){
   if(p==='notice'){const t=document.getElementById('notice-text');if(t)t.value=DB.notice||'';}
   if(p==='accts')renderAccts();
   if(p==='locks'){renderLockGrid();loadLockTime();}
-  if(p==='maintain'){renderMaintain();}
 }
 function renderAllAdm(){renderPplTbl();renderRMgmt();popAHF();renderAdmH();renderRepTbl();renderRTypes();renderBRsn();renderAccts();const t=document.getElementById('notice-text');if(t)t.value=DB.notice||'';}
 
@@ -1765,10 +1695,6 @@ function toggleRoomPwd(id, enabled){
 
 /* ═══ ADMIN HISTORY ═══ */
 function popAHF(){const sel=document.getElementById('ah-room');if(!sel)return;if(!Array.isArray(DB.history))DB.history=[];const rooms=[...new Set(DB.history.map(h=>h.room))].sort();sel.innerHTML='<option value="">所有琴房</option>'+rooms.map(r=>`<option value="${r}">${r}</option>`).join('');}
-
-// 目前篩選結果的 id 清單（供勾選刪除用）
-let _ahCurrentIds=[];
-
 function renderAdmH(){
   const q=document.getElementById('ah-q')?.value?.toLowerCase()||'';
   const rf=v('ah-room');
@@ -1777,13 +1703,11 @@ function renderAdmH(){
   if(rf)data=data.filter(h=>h.room===rf);
   if(q)data=data.filter(h=>h.cls?.toLowerCase().includes(q)||h.name?.includes(q)||h.seatNo?.includes(q));
   data.sort((a,b)=>(b.returnTime||b.borrowTime).localeCompare(a.returnTime||a.borrowTime));
-  _ahCurrentIds=data.map(h=>h.id);
   if(!data.length){document.getElementById('ah-tbl').innerHTML='<div style="padding:2rem;text-align:center;color:var(--mut)">無符合紀錄</div>';return;}
   const rows=data.slice(0,200).map(h=>{
     const ret=h.returner?`${h.returner.cls} ${h.returner.seatNo||''}號 ${h.returner.name}`
       :(h.note?`<span style="color:var(--mut);font-size:11px">${h.note}</span>`:'<span style="color:var(--mut)">—</span>');
     return`<tr>
-    <td style="text-align:center;width:32px"><input type="checkbox" class="ah-chk" data-id="${h.id}" style="width:15px;height:15px;accent-color:var(--R);cursor:pointer"></td>
     <td style="font-family:monospace;font-weight:500">${h.room}</td>
     <td>${h.cls}</td>
     <td style="font-family:monospace;color:var(--AC);text-align:center">${h.seatNo||'—'}</td>
@@ -1797,33 +1721,7 @@ function renderAdmH(){
       :'<span style="font-size:11px;color:var(--mut)">無</span>'}</td>
     <td><button class="btn btn-d btn-xs" onclick="delHist(${h.id})">刪除</button></td></tr>`;
   }).join('');
-  document.getElementById('ah-tbl').innerHTML=`<table><thead><tr>
-    <th style="width:32px"><input type="checkbox" id="ah-chk-all" onchange="ahToggleAll(this.checked)" style="width:15px;height:15px;accent-color:var(--R);cursor:pointer"></th>
-    <th>琴房</th><th>班級</th><th>座號</th><th>借用者</th><th>原因</th><th>借出</th><th>歸還</th><th>歸還者</th><th>照片</th><th></th>
-  </tr></thead><tbody>${rows}</tbody></table>`;
-}
-function ahToggleAll(checked){
-  document.querySelectorAll('.ah-chk').forEach(c=>c.checked=checked);
-}
-function ahSelectAll(){
-  const allChk=document.getElementById('ah-chk-all');
-  if(allChk) allChk.checked=true;
-  document.querySelectorAll('.ah-chk').forEach(c=>c.checked=true);
-}
-function ahDeleteSelected(){
-  const ids=[...document.querySelectorAll('.ah-chk:checked')].map(c=>Number(c.dataset.id));
-  if(!ids.length){showT('請先勾選要刪除的紀錄','tw2');return;}
-  if(!confirm(`確認刪除勾選的 ${ids.length} 筆紀錄？此操作無法復原。`))return;
-  DB.history=(DB.history||[]).filter(h=>!ids.includes(h.id));
-  saveDB();popAHF();renderAdmH();showT(`已刪除 ${ids.length} 筆紀錄`,'ti');
-}
-function ahDeleteAll(){
-  if(!_ahCurrentIds.length){showT('目前無篩選結果','tw2');return;}
-  const label=v('ah-room')||document.getElementById('ah-q')?.value?'篩選結果':'所有';
-  if(!confirm(`確認刪除${label}的 ${_ahCurrentIds.length} 筆紀錄？此操作無法復原。`))return;
-  const idSet=new Set(_ahCurrentIds);
-  DB.history=(DB.history||[]).filter(h=>!idSet.has(h.id));
-  saveDB();popAHF();renderAdmH();showT(`已刪除 ${idSet.size} 筆紀錄`,'ti');
+  document.getElementById('ah-tbl').innerHTML=`<table><thead><tr><th>琴房</th><th>班級</th><th>座號</th><th>借用者</th><th>原因</th><th>借出</th><th>歸還</th><th>歸還者</th><th>照片</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 function delHist(id){
   if(!confirm('確認刪除此筆借還紀錄？此操作無法復原。'))return;
@@ -2024,45 +1922,24 @@ function startCamB(){
     document.getElementById('cam-status-b').textContent='攝影機存取失敗：'+e.message;
   });
 }
-// ── 上傳照片到 Firebase Storage，回傳 URL ──
-async function uploadPhotoToStorage(dataUrl, pathPrefix){
-  if(!fbStorage) return dataUrl; // Storage 未初始化時 fallback
-  try{
-    const blob = await (await fetch(dataUrl)).blob();
-    const ts2 = Date.now();
-    const ref = fbStorage.ref(`photos/${pathPrefix}_${ts2}.jpg`);
-    await ref.put(blob, {contentType:'image/jpeg', customMetadata:{uploadedAt: new Date().toISOString()}});
-    return await ref.getDownloadURL();
-  }catch(e){
-    console.warn('Storage 上傳失敗，使用本機 base64:', e);
-    return dataUrl; // fallback
-  }
-}
-
 function takePhotoB(){
   const v2=document.getElementById('camv-b');if(!v2)return;
+  // 壓縮至最大 480px 寬，大幅減少 localStorage 佔用
   const maxW=480, maxH=360;
   const vw=v2.videoWidth||640, vh=v2.videoHeight||480;
   const scale=Math.min(maxW/vw, maxH/vh, 1);
   const c=document.createElement('canvas');
   c.width=Math.round(vw*scale); c.height=Math.round(vh*scale);
   c.getContext('2d').drawImage(v2,0,0,c.width,c.height);
-  const dataUrl=c.toDataURL('image/jpeg',.65);
-  cpBorrow=dataUrl; // 先存 base64 預覽用
+  cpBorrow=c.toDataURL('image/jpeg',.65); // 品質 0.65，約 20-40KB
   if(vsBorrow){vsBorrow.getTracks().forEach(t=>t.stop());vsBorrow=null;}
   const wrap=document.getElementById('camwrap-b');
-  if(wrap)wrap.innerHTML='<img src="'+dataUrl+'" alt="借用照片" style="width:100%;height:100%;object-fit:cover">';
+  if(wrap)wrap.innerHTML='<img src="'+cpBorrow+'" alt="借用照片" style="width:100%;height:100%;object-fit:cover">';
   document.getElementById('bsn-b').style.display='none';
   document.getElementById('brt-b').style.display='';
   document.getElementById('bco-b').style.display='none';
   const bcb=document.getElementById('bcb');if(bcb){bcb.disabled=false;bcb.removeAttribute('disabled');}
-  document.getElementById('cam-status-b').textContent='✅ 照片已拍攝，上傳中...';
-  // 非同步上傳到 Storage
-  uploadPhotoToStorage(dataUrl,'borrow').then(url=>{
-    cpBorrow=url; // 換成 Storage URL（或保留 base64 fallback）
-    const st=document.getElementById('cam-status-b');
-    if(st) st.textContent = url.startsWith('http') ? '✅ 照片已上傳' : '✅ 照片已拍攝，可確認借用';
-  });
+  document.getElementById('cam-status-b').textContent='✅ 照片已拍攝，可確認借用';
 }
 function retakeB(){
   cpBorrow=null;
@@ -2073,188 +1950,55 @@ function retakeB(){
   document.getElementById('cam-status-b').textContent='尚未拍攝';
 }
 
-/* ═══ 系統維護 ═══ */
-
-// 取得自動刪除天數設定
-function getAutoDelDays(){ return parseInt(DB.settings?.photoAutoDel ?? 5); }
-
-function saveAutoDelDays(){
-  const d=parseInt(document.getElementById('auto-del-days').value)||5;
-  if(!DB.settings) DB.settings={};
-  DB.settings.photoAutoDel=d;
-  DB.settings.photoAutoDelSaved=new Date().toLocaleString('zh-TW');
-  saveDB();
-  document.getElementById('auto-del-days-show').textContent=d;
-  showT(`已設定：每 ${d} 天自動刪除照片`,'ts');
-  renderMaintain();
-}
-
-// 刪除 Storage 中超過 N 天的照片檔
-async function purgeStoragePhotosBefore(cutMs){
-  if(!fbStorage) return 0;
-  let count=0;
-  try{
-    const listResult = await fbStorage.ref('photos').listAll();
-    const dels = listResult.items.map(async item=>{
-      try{
-        const meta = await item.getMetadata();
-        const uploaded = new Date(meta.customMetadata?.uploadedAt || meta.timeCreated).getTime();
-        if(uploaded < cutMs){ await item.delete(); count++; }
-      }catch(e){ console.warn('刪除檔案失敗:', item.name, e); }
-    });
-    await Promise.all(dels);
-  }catch(e){ console.warn('Storage listAll 失敗:', e); }
-  return count;
-}
-
-// 清除 DB history 中的照片欄位（只清 base64，Storage URL 保留）
-function purgeDBPhotos(cutMs){
-  let count=0;
-  if(!DB.history) return count;
-  DB.history.forEach(h=>{
-    if(!h.photo) return;
-    const t=new Date(h.borrowTime||h.returnTime||0).getTime();
-    if(t < cutMs && h.photo.startsWith('data:')){
-      h.photo=null; count++;
-    }
-  });
-  return count;
-}
-
-async function purgePhotosOlderThan(days){
-  if(!confirm(`確認刪除 ${days} 天前的所有照片？\n文字紀錄不受影響。`)) return;
-  showT('刪除中...','ti');
-  const cut=Date.now()-days*86400000;
-  const [sc, dc] = await Promise.all([
-    purgeStoragePhotosBefore(cut),
-    Promise.resolve(purgeDBPhotos(cut))
-  ]);
-  saveDB();
-  showT(`已刪除 ${sc} 個 Storage 照片、${dc} 筆本機照片`,'ts');
-  renderMaintain();
-}
-
-async function purgeAllPhotos(){
-  if(!confirm('確認刪除全部照片？\n文字紀錄不受影響，此操作無法復原。')) return;
-  showT('刪除中...','ti');
-  const [sc, dc] = await Promise.all([
-    purgeStoragePhotosBefore(Date.now()+1),
-    Promise.resolve(purgeDBPhotos(Date.now()+1))
-  ]);
-  saveDB();
-  showT(`已刪除全部 ${sc} 個 Storage 照片、${dc} 筆本機照片`,'ts');
-  renderMaintain();
-}
-
-function purgeOldHistory(){
-  if(!confirm('確認刪除 15 天前的所有借還紀錄？此操作無法復原。')) return;
-  const cut=Date.now()-15*86400000;
-  const before=DB.history?.length||0;
-  DB.history=(DB.history||[]).filter(h=>{
-    const t=new Date(h.returnTime||h.borrowTime||0).getTime();
-    return isNaN(t)||t>=cut;
-  });
-  const removed=before-DB.history.length;
-  saveDB(); renderMaintain();
-  showT(`已刪除 ${removed} 筆舊紀錄`,'ts');
-}
-
-function purgeAllHistory(){
-  if(!confirm('確認清空所有歷史借還紀錄？此操作無法復原！')) return;
-  if(!confirm('再次確認：清空後無法找回，確定嗎？')) return;
-  DB.history=[]; saveDB(); renderMaintain();
-  showT('已清空所有歷史紀錄','ts');
-}
-
-function renderMaintain(){
-  // 照片統計
-  const total=DB.history?.length||0;
-  const withPhoto=(DB.history||[]).filter(h=>h.photo).length;
-  const base64Count=(DB.history||[]).filter(h=>h.photo&&h.photo.startsWith('data:')).length;
-  const urlCount=(DB.history||[]).filter(h=>h.photo&&h.photo.startsWith('http')).length;
-  const el=document.getElementById('photo-stats');
-  if(el) el.innerHTML=
-    `總借還紀錄：<strong>${total}</strong> 筆　｜　有照片：<strong>${withPhoto}</strong> 筆<br>`+
-    `Storage 雲端照片：<strong>${urlCount}</strong> 筆　｜　本機 base64 照片（舊格式）：<strong>${base64Count}</strong> 筆`;
-
-  // 自動刪除設定
-  const days=getAutoDelDays();
-  const inp=document.getElementById('auto-del-days');
-  if(inp) inp.value=days;
-  const show=document.getElementById('auto-del-days-show');
-  if(show) show.textContent=days;
-  const lastEl=document.getElementById('last-auto-del');
-  if(lastEl) lastEl.textContent=DB.settings?.lastAutoDelRun
-    ? `上次自動刪除：${DB.settings.lastAutoDelRun}`:'尚未執行過自動刪除';
-}
-
-// 自動刪除排程：網頁開啟時檢查，每小時再檢查「是否到期」，到期才真正執行 listAll
-async function checkAutoDelete(){
-  const days=getAutoDelDays();
-  const lastRun=DB.settings?.lastAutoDelAt||0;
-  const intervalMs=days*86400000;
-  // 還沒到期就直接跳過，不呼叫任何 Storage API
-  if(Date.now()-lastRun < intervalMs) return;
-  console.log(`[AutoDel] 執行自動刪除（${days}天前）`);
-  const cut=Date.now()-intervalMs;
-  // 只有真正到期時才呼叫 listAll（每 N 天最多一次）
-  await purgeStoragePhotosBefore(cut);
-  purgeDBPhotos(cut);
-  if(!DB.settings) DB.settings={};
-  DB.settings.lastAutoDelAt=Date.now();
-  DB.settings.lastAutoDelRun=new Date().toLocaleString('zh-TW');
-  saveDB();
-  console.log('[AutoDel] 完成');
-}
-
-// 啟動時檢查一次（延遲 5 秒等 Firebase 連線），之後每 6 小時再檢查「是否到期」
-// 每次檢查只是比較時間戳，不呼叫 Storage，完全免費
-setTimeout(checkAutoDelete, 5000);
-setInterval(checkAutoDelete, 6*3600000);
-
 /* ═══ 門鎖控制 ═══ */
 const ADMIN_KEY = 'musickey2024';
-
-// 從琴房管理的 lockIds 動態產生門鎖清單，不再寫死
-function getLocks(){
-  const locks=[];
-  const seen=new Set();
-  (DB.rooms||[]).forEach(r=>{
-    (r.lockIds||[]).forEach(lid=>{
-      if(!lid||seen.has(lid)) return;
-      seen.add(lid);
-      locks.push({id:lid, name:r.name+(r.lockIds.length>1?' ('+lid+')':''), roomName:r.name});
-    });
-  });
-  return locks;
-}
+const LOCKS = [
+  {id:'210錄音室',  name:'210 錄音室',  status:'online'},
+  {id:'209展演廳',  name:'209 展演廳',  status:'online'},
+  {id:'多功能',     name:'多功能',       status:'online'},
+  {id:'106',        name:'106',          status:'online'},
+  {id:'105',        name:'105',          status:'online'},
+  {id:'104',        name:'104',          status:'online'},
+  {id:'B1排練教室', name:'B1 排練教室', status:'online'},
+  {id:'演一莊',     name:'演一莊',       status:'online'},
+  {id:'104單',      name:'104單',        status:'online'},
+  {id:'211',        name:'211',          status:'online'},
+  {id:'音一莊',     name:'音一莊',       status:'online'},
+  {id:'室內樂教室', name:'室內樂教室',  status:'online'},
+  {id:'B1樂團',     name:'B1 樂團',     status:'online'},
+  {id:'212新',      name:'212新',        status:'online'},
+  {id:'102',        name:'102',          status:'offline'},
+  {id:'211單間',    name:'211 單間',    status:'offline'},
+  {id:'音二莊',     name:'音二莊',       status:'offline'},
+  {id:'音三莊',     name:'音三莊',       status:'offline'},
+  {id:'102單間',    name:'102 單間',    status:'offline'},
+  {id:'212單',      name:'212單',        status:'offline'},
+  {id:'101單間',    name:'101 單間',    status:'offline'},
+  {id:'101',        name:'101',          status:'offline'},
+];
 function renderLockGrid(){
   const grid=document.getElementById('lock-grid');
   if(!grid)return;
-  const locks=getLocks();
-  if(!locks.length){
-    grid.innerHTML='<div style="color:var(--mut);font-size:13px;padding:1rem">尚未在「琴房管理」設定任何 Lock ID</div>';
-    return;
-  }
-  grid.innerHTML=locks.map(lock=>`
+  grid.innerHTML=LOCKS.map(lock=>`
     <div style="background:var(--sur);border:1.5px solid var(--bdr);border-radius:var(--rl);padding:.875rem;">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-        <input type="checkbox" id="chk-${escHtml(lock.id)}" style="width:16px;height:16px;accent-color:var(--AC);flex-shrink:0">
-        <div style="flex:1;min-width:0">
-          <div style="font-size:15px;font-weight:700;font-family:'IBM Plex Mono',monospace">${escHtml(lock.name)}</div>
-          <div style="font-size:10px;color:var(--mut);font-family:monospace">${escHtml(lock.id)}</div>
-        </div>
+        <input type="checkbox" id="chk-${lock.id}" style="width:16px;height:16px;accent-color:var(--AC);flex-shrink:0">
+        <span style="font-size:15px;font-weight:700;font-family:'IBM Plex Mono',monospace;flex:1">${lock.name}</span>
+        <span style="font-size:11px;padding:2px 7px;border-radius:20px;font-weight:500;
+          ${lock.status==='online'?'background:var(--Gl);color:var(--G);border:1px solid var(--Gb)':'background:#f0f0f0;color:#888;border:1px solid #ddd'}">
+          ${lock.status==='online'?'● Online':'○ Offline'}
+        </span>
       </div>
       <div style="display:flex;gap:6px;">
-        <button class="btn btn-s btn-sm" style="flex:1;font-size:12px" onclick="singleLockAction('${escHtml(lock.id)}','unlock')">🔓 解鎖</button>
-        <button class="btn btn-d btn-sm" style="flex:1;font-size:12px" onclick="singleLockAction('${escHtml(lock.id)}','lock')">🔒 上鎖</button>
+        <button class="btn btn-s btn-sm" style="flex:1;font-size:12px" onclick="singleLockAction('${lock.id}','unlock')">🔓 解鎖</button>
+        <button class="btn btn-d btn-sm" style="flex:1;font-size:12px" onclick="singleLockAction('${lock.id}','lock')">🔒 上鎖</button>
       </div>
-      <div id="lock-msg-${escHtml(lock.id)}" style="font-size:11px;color:var(--mut);margin-top:5px;min-height:15px;text-align:center;"></div>
+      <div id="lock-msg-${lock.id}" style="font-size:11px;color:var(--mut);margin-top:5px;min-height:15px;text-align:center;"></div>
     </div>
   `).join('');
 }
 function setLockMsg(lockId,msg,color){const el=document.getElementById('lock-msg-'+lockId);if(el){el.textContent=msg;el.style.color=color||'var(--mut)';}}
-async function callLockFn(fnName,lockId){const fn=firebase.functions().httpsCallable(fnName);const result=await fn({lockId,adminKey:ADMIN_KEY});return result.data;}
+async function callLockFn(fnName,lockId){const fn=firebase.app().functions('us-central1').httpsCallable(fnName);const result=await fn({lockId,adminKey:ADMIN_KEY});return result.data;}
 async function singleLockAction(lockId,action){
   const label=action==='unlock'?'解鎖':'上鎖';
   setLockMsg(lockId,'處理中...','var(--A)');
@@ -2262,17 +2006,16 @@ async function singleLockAction(lockId,action){
   catch(err){setLockMsg(lockId,'✗ 操作失敗','var(--R)');showT(lockId+' '+label+'失敗：'+err.message,'td2');console.error(err);}
 }
 async function lockBatchAction(action){
-  const locks=getLocks();
   const label=action==='unlock'?'解鎖':'上鎖';
-  if(!confirm('確認要對全部 '+locks.length+' 個門鎖執行「'+label+'」？'))return;
+  if(!confirm('確認要對全部 '+LOCKS.length+' 個門鎖執行「'+label+'」？'))return;
   showT('正在'+label+'全部門鎖...','ti');let ok=0,fail=0;
-  for(const lock of locks){try{await callLockFn(action==='unlock'?'manualUnlock':'manualLock',lock.id);setLockMsg(lock.id,'✓ '+label+'成功','var(--G)');ok++;}catch(e){setLockMsg(lock.id,'✗ 失敗','var(--R)');fail++;}}
+  for(const lock of LOCKS){try{await callLockFn(action==='unlock'?'manualUnlock':'manualLock',lock.id);setLockMsg(lock.id,'✓ '+label+'成功','var(--G)');ok++;}catch(e){setLockMsg(lock.id,'✗ 失敗','var(--R)');fail++;}}
   showT('完成：'+ok+' 成功，'+fail+' 失敗',ok>0?'ts':'td2');
 }
-function lockSelectAll(){getLocks().forEach(l=>{const c=document.getElementById('chk-'+l.id);if(c)c.checked=true;});}
-function lockSelectNone(){getLocks().forEach(l=>{const c=document.getElementById('chk-'+l.id);if(c)c.checked=false;});}
+function lockSelectAll(){LOCKS.forEach(l=>{const c=document.getElementById('chk-'+l.id);if(c)c.checked=true;});}
+function lockSelectNone(){LOCKS.forEach(l=>{const c=document.getElementById('chk-'+l.id);if(c)c.checked=false;});}
 async function lockBatchSelected(action){
-  const selected=getLocks().filter(l=>{const c=document.getElementById('chk-'+l.id);return c&&c.checked;});
+  const selected=LOCKS.filter(l=>{const c=document.getElementById('chk-'+l.id);return c&&c.checked;});
   if(!selected.length){showT('請先勾選門鎖','tw2');return;}
   const label=action==='unlock'?'解鎖':'上鎖';
   if(!confirm('確認要對 '+selected.length+' 個門鎖執行「'+label+'」？'))return;
@@ -2282,43 +2025,10 @@ async function lockBatchSelected(action){
 }
 function saveLockTime(){
   const t=document.getElementById('lock-time-input')?.value;if(!t){showT('請選擇時間','tw2');return;}
-  if(fbDB){fbDB.ref('settings/lockTime').set(t).then(()=>{
-    const el=document.getElementById('lock-time-status');
-    if(el)el.textContent='✓ 已設定為每天 '+t+' 上鎖';
-    showT('上鎖時間已儲存：'+t,'ts');
-  }).catch(()=>showT('儲存失敗','td2'));}
-}
-function saveAutoLockEnabled(enabled){
-  if(fbDB){fbDB.ref('settings/autoLockEnabled').set(enabled).then(()=>{
-    updateAutoLockUI(enabled);
-    showT(enabled?'每日自動上鎖已開啟':'每日自動上鎖已關閉',enabled?'ts':'ti');
-  }).catch(()=>showT('儲存失敗','td2'));}
-}
-function updateAutoLockUI(enabled){
-  const lbl=document.getElementById('auto-lock-enabled-label');
-  const row=document.getElementById('auto-lock-time-row');
-  const chk=document.getElementById('auto-lock-enabled');
-  if(lbl) lbl.textContent=enabled?'已開啟（Function 會執行）':'已關閉（Function 不執行）';
-  if(lbl) lbl.style.color=enabled?'var(--G)':'var(--mut)';
-  if(row) row.style.opacity=enabled?'1':'0.4';
-  if(chk) chk.checked=enabled;
+  if(fbDB){fbDB.ref('settings/lockTime').set(t).then(()=>{const el=document.getElementById('lock-time-status');if(el)el.textContent='✓ 已設定為每天 '+t+' 上鎖';showT('上鎖時間已儲存：'+t,'ts');}).catch(()=>showT('儲存失敗','td2'));}
 }
 function loadLockTime(){
-  if(!fbDB) return;
-  fbDB.ref('settings/lockTime').get().then(snap=>{
-    if(snap.exists()){
-      const t=snap.val();
-      const inp=document.getElementById('lock-time-input');
-      const el=document.getElementById('lock-time-status');
-      if(inp)inp.value=t;
-      if(el)el.textContent='目前設定：每天 '+t+' 上鎖';
-    }
-  });
-  fbDB.ref('settings/autoLockEnabled').get().then(snap=>{
-    // 預設 false（未設定過 = 關閉）
-    const enabled = snap.exists() ? snap.val() : false;
-    updateAutoLockUI(enabled);
-  });
+  if(fbDB){fbDB.ref('settings/lockTime').get().then(snap=>{if(snap.exists()){const t=snap.val();const inp=document.getElementById('lock-time-input');const el=document.getElementById('lock-time-status');if(inp)inp.value=t;if(el)el.textContent='目前設定：每天 '+t+' 上鎖';}});}
 }
 
 
