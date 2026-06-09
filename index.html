@@ -972,7 +972,8 @@ function openBM(r){
     '<div class="modal-cols">'+
       '<div>'+
         '<div class="fg"><label class="fl">班級</label>'+
-          '<select id="bc" onchange="bcCls(this.value)"><option value="">請選擇班級...</option>'+clsOpts+'</select></div>'+
+          '<select id="bc" onchange="bcCls(this.value)"><option value="">請選擇班級...</option>'+clsOpts+'<option value="__other__">✏ 其他（教師 / 其他班學生）</option></select></div>'+
+        '<div id="bn-numpad-wrap">'+
         '<div class="fg"><label class="fl">座號 → 自動帶入姓名</label>'+
           '<div class="numpad-wrap">'+
             '<div class="numpad-display">'+
@@ -996,6 +997,31 @@ function openBM(r){
           '</div>'+
           '<input type="hidden" id="bn-val">'+
         '</div>'+
+        '</div>'+
+        '<div id="bn-other-wrap" style="display:none">'+
+          '<!-- 身份選擇按鈕（內嵌，不開新彈窗） -->'+
+          '<div id="bn-id-chooser" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:.75rem">'+
+            '<button type="button" onclick="selectOtherId(\'borrow\',\'teacher\')" style="padding:1rem .5rem;font-size:13px;font-family:\'Noto Sans TC\',sans-serif;border-radius:var(--rl);border:2px solid var(--AC);background:var(--Bl);color:var(--AC);cursor:pointer;font-weight:500;text-align:center">'+
+              '<div style="font-size:26px;margin-bottom:4px">👩‍🏫</div>教師<div style="font-size:10px;color:var(--mut);margin-top:4px;font-weight:400">不需拍照</div>'+
+            '</button>'+
+            '<button type="button" onclick="selectOtherId(\'borrow\',\'student\')" style="padding:1rem .5rem;font-size:13px;font-family:\'Noto Sans TC\',sans-serif;border-radius:var(--rl);border:2px solid var(--bdr);background:var(--sur);color:var(--txt);cursor:pointer;font-weight:500;text-align:center">'+
+              '<div style="font-size:26px;margin-bottom:4px">🧑‍🎓</div>其他班學生<div style="font-size:10px;color:var(--mut);margin-top:4px;font-weight:400">需拍照</div>'+
+            '</button>'+
+          '</div>'+
+          '<div id="bn-other-teacher-wrap" style="display:none">'+
+            '<div class="fg"><label class="fl">教師姓名</label>'+
+              '<input type="text" id="bn-teacher-name" placeholder="例：王老師">'+
+            '</div>'+
+          '</div>'+
+          '<div id="bn-other-student-wrap" style="display:none">'+
+            '<div class="fg"><label class="fl">班級</label>'+
+              '<input type="text" id="bn-ext-cls" placeholder="例：301班">'+
+            '</div>'+
+            '<div class="fg"><label class="fl">姓名</label>'+
+              '<input type="text" id="bn-ext-name" placeholder="例：王小明">'+
+            '</div>'+
+          '</div>'+
+        '</div>'+
       '</div>'+
       '<div>'+
         '<div class="fg"><label class="fl">借用原因</label>'+
@@ -1004,7 +1030,7 @@ function openBM(r){
         '<div class="fg" id="br-ob" style="display:none"><label class="fl">其他原因說明</label>'+
           '<input type="text" id="br-ot" placeholder="請說明借用原因..."></div>'+
       '</div>'+
-      '<div>'+
+      '<div id="bn-cam-section">'+
         '<label class="fl">拍攝借用照片（必填）<span style="color:var(--R)">★</span></label>'+
         '<div class="cam-wrap" id="camwrap-b" style="margin-top:.3rem">'+
           '<div class="cam-ph"><div style="font-size:32px">📷</div><div style="font-size:12px;margin-top:6px">請點擊「開啟攝影機」</div></div>'+
@@ -1025,9 +1051,128 @@ function openBM(r){
   });
 }
 function bcCls(cls){
-  // clear seat when class changes
-  nkReset('bn');
+  if(cls==='__other__'){
+    // 直接在彈窗內顯示身份選擇區，不開新彈窗
+    _bnShowMode('other');
+  } else {
+    _bnShowMode('normal');
+    nkReset('bn');
+  }
 }
+
+// 切換借用彈窗顯示模式
+function _bnShowMode(mode){
+  var numWrap=document.getElementById('bn-numpad-wrap');
+  var otherWrap=document.getElementById('bn-other-wrap');
+  var idChooser=document.getElementById('bn-id-chooser');
+  var teacherWrap=document.getElementById('bn-other-teacher-wrap');
+  var studentWrap=document.getElementById('bn-other-student-wrap');
+  var camSec=document.getElementById('bn-cam-section');
+  var bcb=document.getElementById('bcb');
+  if(mode==='normal'){
+    if(numWrap)numWrap.style.display='';
+    if(otherWrap)otherWrap.style.display='none';
+    if(camSec)camSec.style.display='';
+    if(bcb){bcb.disabled=true;bcb.setAttribute('disabled','');}
+  } else if(mode==='other'){
+    // 顯示身份選擇按鈕，隱藏數字鍵盤和欄位
+    if(numWrap)numWrap.style.display='none';
+    if(otherWrap)otherWrap.style.display='';
+    if(idChooser)idChooser.style.display='grid';
+    if(teacherWrap)teacherWrap.style.display='none';
+    if(studentWrap)studentWrap.style.display='none';
+    if(camSec)camSec.style.display='none';
+    if(bcb){bcb.disabled=true;bcb.setAttribute('disabled','');}
+  } else if(mode==='teacher'){
+    if(numWrap)numWrap.style.display='none';
+    if(otherWrap)otherWrap.style.display='';
+    if(idChooser)idChooser.style.display='none';
+    if(teacherWrap)teacherWrap.style.display='';
+    if(studentWrap)studentWrap.style.display='none';
+    if(camSec)camSec.style.display='none';
+    if(bcb){bcb.disabled=false;bcb.removeAttribute('disabled');}
+  } else if(mode==='student'){
+    if(numWrap)numWrap.style.display='none';
+    if(otherWrap)otherWrap.style.display='';
+    if(idChooser)idChooser.style.display='none';
+    if(teacherWrap)teacherWrap.style.display='none';
+    if(studentWrap)studentWrap.style.display='';
+    if(camSec)camSec.style.display='';
+    if(bcb){bcb.disabled=true;bcb.setAttribute('disabled','');}
+  }
+}
+
+// 切換歸還彈窗顯示模式
+function _rn2ShowMode(mode){
+  var numWrap=document.getElementById('rn2-numpad-wrap');
+  var otherWrap=document.getElementById('rn2-other-wrap');
+  var idChooser=document.getElementById('rn2-id-chooser');
+  var teacherWrap=document.getElementById('rn2-other-teacher-wrap');
+  var studentWrap=document.getElementById('rn2-other-student-wrap');
+  var camSec=document.getElementById('rn2-cam-section');
+  var bcr=document.getElementById('bcr');
+  if(mode==='normal'){
+    if(numWrap)numWrap.style.display='';
+    if(otherWrap)otherWrap.style.display='none';
+    if(camSec)camSec.style.display='';
+    if(bcr){bcr.disabled=true;bcr.setAttribute('disabled','');}
+  } else if(mode==='other'){
+    if(numWrap)numWrap.style.display='none';
+    if(otherWrap)otherWrap.style.display='';
+    if(idChooser)idChooser.style.display='grid';
+    if(teacherWrap)teacherWrap.style.display='none';
+    if(studentWrap)studentWrap.style.display='none';
+    if(camSec)camSec.style.display='none';
+    if(bcr){bcr.disabled=true;bcr.setAttribute('disabled','');}
+  } else if(mode==='teacher'){
+    if(numWrap)numWrap.style.display='none';
+    if(otherWrap)otherWrap.style.display='';
+    if(idChooser)idChooser.style.display='none';
+    if(teacherWrap)teacherWrap.style.display='';
+    if(studentWrap)studentWrap.style.display='none';
+    if(camSec)camSec.style.display='none';
+    if(bcr){bcr.disabled=false;bcr.removeAttribute('disabled');}
+  } else if(mode==='student'){
+    if(numWrap)numWrap.style.display='none';
+    if(otherWrap)otherWrap.style.display='';
+    if(idChooser)idChooser.style.display='none';
+    if(teacherWrap)teacherWrap.style.display='none';
+    if(studentWrap)studentWrap.style.display='';
+    if(camSec)camSec.style.display='';
+    if(bcr){bcr.disabled=true;bcr.setAttribute('disabled','');}
+  }
+}
+
+// 身份按鈕點選（不開新彈窗，直接在原彈窗內切換欄位）
+function selectOtherId(context, idType){
+  if(context==='borrow'){
+    _bnShowMode(idType);
+    var tn=document.getElementById('bn-teacher-name');if(tn)tn.value='';
+    var ec=document.getElementById('bn-ext-cls');if(ec)ec.value='';
+    var en=document.getElementById('bn-ext-name');if(en)en.value='';
+    cpBorrow=null;
+  } else {
+    _rn2ShowMode(idType);
+    var tn2=document.getElementById('rn2-teacher-name');if(tn2)tn2.value='';
+    var ec2=document.getElementById('rn2-ext-cls');if(ec2)ec2.value='';
+    var en2=document.getElementById('rn2-ext-name');if(en2)en2.value='';
+    cp=null;
+  }
+}
+
+function cancelOtherId(context){
+  if(context==='borrow'){
+    var sel=document.getElementById('bc');if(sel)sel.value='';
+    _bnShowMode('normal');
+  } else {
+    var sel2=document.getElementById('rc2');if(sel2)sel2.value='';
+    _rn2ShowMode('normal');
+  }
+}
+
+function openOtherIdModal(context){} // 保留空函式，不再使用
+
+function bnOtherInput(val){}
 
 // ── Numpad state ──
 const nkState={bn:'',rn2:''};
@@ -1080,23 +1225,52 @@ function nkRefresh(field){
 
 function confBorrow(id){
   const cls=v('bc');
-  const seat=nkState['bn'];
   const rsn=document.querySelector('input[name=br]:checked')?.value;
   if(!cls){showT('請選擇班級','tw2');return;}
-  if(!seat){showT('請輸入座號','tw2');return;}
-  const padded=seat.padStart(2,'0');
-  const person=DB.people.find(p=>p.cls===cls&&p.seatNo===padded);
-  if(!person){showT(`${cls} 查無座號 ${padded}，無法借用`,'td2');return;}
   if(!rsn){showT('請選擇借用原因','tw2');return;}
   const rt=rsn==='其他'?(document.getElementById('br-ot')?.value?.trim()||'其他'):rsn;
   if(rsn==='其他'&&!document.getElementById('br-ot')?.value?.trim()){showT('請填寫其他原因','tw2');return;}
-  if(!cpBorrow){showT('請先拍攝借用照片','tw2');return;}
   const r=DB.rooms.find(x=>x.id===id);
   if(!r){showT('找不到琴房資料','td2');return;}
   if(!Array.isArray(DB.history))DB.history=[];
   if(!DB.ids)DB.ids={h:100,rep:10,ppl:30};
-  r.status='bw';r.borrower={cls,seatNo:padded,name:person.name,time:nowT(),reason:rt};
-  DB.history.unshift({id:++DB.ids.h,room:r.name,rid:r.id,cls,seatNo:padded,name:person.name,borrowTime:ts(),returnTime:null,photo:cpBorrow,reason:rt});
+
+  let borrowCls, padded, personName, isTeacher=false;
+  if(cls==='__other__'){
+    // 判斷是教師還是其他班學生
+    var teacherWrap=document.getElementById('bn-other-teacher-wrap');
+    var isTeacherMode = teacherWrap && teacherWrap.style.display!=='none';
+    if(isTeacherMode){
+      const tName=(document.getElementById('bn-teacher-name')?.value||'').trim();
+      if(!tName){showT('請輸入教師姓名','tw2');return;}
+      borrowCls='教師';
+      padded='';
+      personName=tName;
+      isTeacher=true;
+    } else {
+      const extCls=(document.getElementById('bn-ext-cls')?.value||'').trim();
+      const extName=(document.getElementById('bn-ext-name')?.value||'').trim();
+      if(!extCls){showT('請輸入班級','tw2');return;}
+      if(!extName){showT('請輸入姓名','tw2');return;}
+      if(!cpBorrow){showT('請先拍攝借用照片','tw2');return;}
+      borrowCls=extCls;
+      padded='';
+      personName=extName;
+    }
+  } else {
+    const seat=nkState['bn'];
+    if(!seat){showT('請輸入座號','tw2');return;}
+    padded=seat.padStart(2,'0');
+    const person=DB.people.find(p=>p.cls===cls&&p.seatNo===padded);
+    if(!person){showT(`${cls} 查無座號 ${padded}，無法借用`,'td2');return;}
+    if(!cpBorrow){showT('請先拍攝借用照片','tw2');return;}
+    borrowCls=cls;
+    personName=person.name;
+  }
+  const cls2=borrowCls;
+  const person={name:personName};
+  r.status='bw';r.borrower={cls:cls2,seatNo:padded,name:personName,time:nowT(),reason:rt};
+  DB.history.unshift({id:++DB.ids.h,room:r.name,rid:r.id,cls:cls2,seatNo:padded,name:personName,borrowTime:ts(),returnTime:null,photo:cpBorrow||null,reason:rt});
   cpBorrow=null;
   if(vsBorrow){vsBorrow.getTracks().forEach(t=>t.stop());vsBorrow=null;}
   nkReset('bn');
@@ -1115,7 +1289,7 @@ function confBorrow(id){
       : '請至鑰匙存放處自取鑰匙';
     showM(`<div class="mt" style="text-align:center;font-size:18px;padding-bottom:.75rem">✅ 借用完成</div>
       <div style="text-align:center;padding:.5rem 0 1rem">
-        <div style="font-size:15px;font-weight:500;color:var(--AC);margin-bottom:.5rem">${escHtml(r.name)}｜${escHtml(cls)} ${escHtml(padded)}號 ${escHtml(person.name)}</div>
+        <div style="font-size:15px;font-weight:500;color:var(--AC);margin-bottom:.5rem">${escHtml(r.name)}｜${escHtml(cls2)}${padded?' '+escHtml(padded)+'號':''} ${escHtml(personName)}</div>
         <div style="background:var(--Gl);border:1px solid var(--Gb);border-radius:var(--r);padding:1rem;margin:.75rem 0;color:var(--G);font-size:14px;line-height:1.8">
           📦 ${escHtml(reason)}<br>🚪 開完門後請<strong>填寫歸還登記</strong>
         </div>
@@ -1131,7 +1305,7 @@ function confBorrow(id){
 
   // 只有一道門直接發密碼，多道門先讓使用者選
   if(lockOptions.length === 1) {
-    _doGetPassword(r, cls, padded, person, lockOptions[0].id);
+    _doGetPassword(r, cls2, padded, person, lockOptions[0].id);
   } else {
     // 跳出選門視窗
     const doorHtml = lockOptions.map((opt,i) =>
@@ -1142,7 +1316,7 @@ function confBorrow(id){
     ).join('');
     closeM();
     // 儲存借用資訊供選門後使用
-    window._pendingBorrow = {r, cls, padded, person};
+    window._pendingBorrow = {r, cls:cls2, padded, person};
     showM(`<div class="mt">🚪 ${escHtml(r.name)} — 請選擇要開哪道門</div>
       <div class="alert ai" style="margin-bottom:1rem;font-size:13px">此房間有多道門，請選擇你要進入的門</div>
       <div class="rg">${doorHtml}</div>
@@ -1251,7 +1425,8 @@ function openRetM(r){
     '<div class="modal-cols">'+
       '<div>'+
         '<div class="fg"><label class="fl">歸還者班級</label>'+
-          '<select id="rc2" onchange="rcCls(this.value)"><option value="">請選擇班級...</option>'+clsOpts+'</select></div>'+
+          '<select id="rc2" onchange="rcCls(this.value)"><option value="">請選擇班級...</option>'+clsOpts+'<option value="__other__">✏ 其他（教師 / 其他班學生）</option></select></div>'+
+        '<div id="rn2-numpad-wrap">'+
         '<div class="fg"><label class="fl">歸還者座號 → 自動帶入姓名</label>'+
           '<div class="numpad-wrap">'+
             '<div class="numpad-display">'+
@@ -1275,8 +1450,32 @@ function openRetM(r){
           '</div>'+
           '<input type="hidden" id="rn2-val">'+
         '</div>'+
+        '</div>'+
+        '<div id="rn2-other-wrap" style="display:none">'+
+          '<div id="rn2-id-chooser" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:.75rem">'+
+            '<button type="button" onclick="selectOtherId(\'return\',\'teacher\')" style="padding:1rem .5rem;font-size:13px;font-family:\'Noto Sans TC\',sans-serif;border-radius:var(--rl);border:2px solid var(--AC);background:var(--Bl);color:var(--AC);cursor:pointer;font-weight:500;text-align:center">'+
+              '<div style="font-size:26px;margin-bottom:4px">👩‍🏫</div>教師<div style="font-size:10px;color:var(--mut);margin-top:4px;font-weight:400">不需拍照</div>'+
+            '</button>'+
+            '<button type="button" onclick="selectOtherId(\'return\',\'student\')" style="padding:1rem .5rem;font-size:13px;font-family:\'Noto Sans TC\',sans-serif;border-radius:var(--rl);border:2px solid var(--bdr);background:var(--sur);color:var(--txt);cursor:pointer;font-weight:500;text-align:center">'+
+              '<div style="font-size:26px;margin-bottom:4px">🧑‍🎓</div>其他班學生<div style="font-size:10px;color:var(--mut);margin-top:4px;font-weight:400">需拍照</div>'+
+            '</button>'+
+          '</div>'+
+          '<div id="rn2-other-teacher-wrap" style="display:none">'+
+            '<div class="fg"><label class="fl">教師姓名</label>'+
+              '<input type="text" id="rn2-teacher-name" placeholder="例：王老師">'+
+            '</div>'+
+          '</div>'+
+          '<div id="rn2-other-student-wrap" style="display:none">'+
+            '<div class="fg"><label class="fl">班級</label>'+
+              '<input type="text" id="rn2-ext-cls" placeholder="例：301班">'+
+            '</div>'+
+            '<div class="fg"><label class="fl">姓名</label>'+
+              '<input type="text" id="rn2-ext-name" placeholder="例：王小明">'+
+            '</div>'+
+          '</div>'+
+        '</div>'+
       '</div>'+
-      '<div>'+
+      '<div id="rn2-cam-section">'+
         '<label class="fl">拍攝歸還照片（必填）<span style="color:var(--R)">★</span></label>'+
         '<div class="cam-wrap" id="camwrap" style="margin-top:.3rem">'+
           '<div class="cam-ph"><div style="font-size:32px">📷</div><div style="font-size:12px;margin-top:6px">請點擊「開啟攝影機」</div></div>'+
@@ -1294,7 +1493,14 @@ function openRetM(r){
   showM(html,true,'horiz');
   nkReset('rn2');
 }
-function rcCls(cls){nkReset('rn2');}
+function rcCls(cls){
+  if(cls==='__other__'){
+    _rn2ShowMode('other');
+  } else {
+    _rn2ShowMode('normal');
+    nkReset('rn2');
+  }
+}
 function startCam(){
   navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:1280},height:{ideal:960}}})
   .then(stream=>{
@@ -1346,15 +1552,41 @@ function retake(){
 function stopCam(){if(vs){vs.getTracks().forEach(t=>t.stop());vs=null;}}
 function confReturn(id){
   const cls=v('rc2');
-  const seat=nkState['rn2'];
   if(!cls){showT('請選擇歸還者班級','tw2');return;}
-  if(!seat){showT('請輸入座號','tw2');return;}
-  const padded=seat.padStart(2,'0');
-  const person=DB.people.find(p=>p.cls===cls&&p.seatNo===padded);
-  if(!person){showT(`${cls} 查無座號 ${padded}，無法歸還`,'td2');return;}
-  if(!cp){showT('請先拍攝鑰匙照片','tw2');return;}
   const r=DB.rooms.find(x=>x.id===id);
   if(!r){showT('找不到琴房資料','td2');return;}
+
+  let returnCls, padded, personName, isTeacherRet=false;
+  if(cls==='__other__'){
+    var teacherWrapR=document.getElementById('rn2-other-teacher-wrap');
+    var isTeacherModeR = teacherWrapR && teacherWrapR.style.display!=='none';
+    if(isTeacherModeR){
+      const tName=(document.getElementById('rn2-teacher-name')?.value||'').trim();
+      if(!tName){showT('請輸入教師姓名','tw2');return;}
+      returnCls='教師';
+      padded='';
+      personName=tName;
+      isTeacherRet=true;
+    } else {
+      const extCls=(document.getElementById('rn2-ext-cls')?.value||'').trim();
+      const extName=(document.getElementById('rn2-ext-name')?.value||'').trim();
+      if(!extCls){showT('請輸入班級','tw2');return;}
+      if(!extName){showT('請輸入姓名','tw2');return;}
+      if(!cp){showT('請先拍攝鑰匙照片','tw2');return;}
+      returnCls=extCls;
+      padded='';
+      personName=extName;
+    }
+  } else {
+    const seat=nkState['rn2'];
+    if(!seat){showT('請輸入座號','tw2');return;}
+    padded=seat.padStart(2,'0');
+    const person=DB.people.find(p=>p.cls===cls&&p.seatNo===padded);
+    if(!person){showT(`${cls} 查無座號 ${padded}，無法歸還`,'td2');return;}
+    if(!cp){showT('請先拍攝鑰匙照片','tw2');return;}
+    returnCls=cls;
+    personName=person.name;
+  }
 
   // 多道門處理
   const ROOM_TO_LOCK_RET = {
@@ -1375,7 +1607,7 @@ function confReturn(id){
       </label>`
     ).join('');
     // 儲存歸還資訊供選門後使用
-    window._pendingReturn = {id, cls, padded, personName: person.name};
+    window._pendingReturn = {id, cls:returnCls, padded, personName};
     showM(`<div class="mt">🚪 ${escHtml(r.name)} — 請選擇歸還的是哪道門</div>
       <div class="alert ai" style="margin-bottom:1rem;font-size:13px">此房間有多道門，請選擇你要歸還的門</div>
       <div class="rg">${doorHtml}</div>
@@ -1384,7 +1616,7 @@ function confReturn(id){
         <button class="btn btn-p" onclick="confirmReturnDoorSelect()">確認歸還</button>
       </div>`);
   } else {
-    _doReturn(id, cls, padded, person.name, null);
+    _doReturn(id, returnCls, padded, personName, null);
   }
 }
 
