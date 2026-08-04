@@ -890,7 +890,8 @@ function _roomCard(r){
   var cc=r.kd?'dk':r.status,badge='',info='';
   if(r.kd){badge='<div class="rb bdk">🚫 禁止借用</div>';}
   else if(r.status==='av'){
-    const blk=getBlockedSlotsForRoom(r.id);
+    let blk=[];
+    try{blk=getBlockedSlotsForRoom(r.id);}catch(e){}
     if(blk.length){
       badge='<div class="rb" style="background:var(--Al);color:var(--A);border-color:var(--Ab)">⏰ 限制時段</div>';
       info='<div class="ri" style="color:var(--A);font-size:10px">'+blk.map(s=>s.label||s.start+'–'+s.end).join('、')+'</div>';
@@ -1000,13 +1001,14 @@ function openRM(id){
 
 /* ═══ BLOCKED SLOTS CHECK ═══ */
 function getBlockedSlotsForRoom(roomId){
-  if(!Array.isArray(DB.blockedSlots))return[];
+  if(!DB||!Array.isArray(DB.blockedSlots))return[];
   const now=new Date();
-  const hhmm=pad(now.getHours())+':'+pad(now.getMinutes());
+  const hh=String(now.getHours()).padStart(2,'0');
+  const mm=String(now.getMinutes()).padStart(2,'0');
+  const hhmm=hh+':'+mm;
   return DB.blockedSlots.filter(s=>{
     if(!s.rooms||!s.rooms.includes(roomId))return false;
     if(!s.start||!s.end)return false;
-    // handle overnight slots (e.g. 22:00-08:00)
     if(s.start<=s.end){return hhmm>=s.start&&hhmm<s.end;}
     else{return hhmm>=s.start||hhmm<s.end;}
   });
@@ -1018,6 +1020,7 @@ function firePendingTTS(){
   window._pendingTTS=null;
   setTimeout(()=>bswSpeak(txt),400);
 }
+function bswSpeak(text, onEnd){
   if(!window.speechSynthesis)return;
   window.speechSynthesis.cancel();
   const utt=new SpeechSynthesisUtterance(text);
