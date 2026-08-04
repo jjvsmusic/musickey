@@ -1021,42 +1021,28 @@ function firePendingTTS(){
   setTimeout(()=>bswSpeak(txt),400);
 }
 function bswSpeak(text, onEnd){
-  // 用 fetch 抓 Google Translate TTS blob 再播放，避免 CORS 問題
-  const url='https://translate.googleapis.com/translate_tts?ie=UTF-8&tl=zh-TW&client=gtx&q='+encodeURIComponent(text);
-  let done=false;
-  function finish(){if(done)return;done=true;if(onEnd)onEnd();}
-  fetch(url,{headers:{'User-Agent':'Mozilla/5.0'}})
-    .then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.blob();})
-    .then(blob=>{
-      const burl=URL.createObjectURL(blob);
-      const audio=new Audio(burl);
-      audio.volume=1;
-      audio.onended=()=>{URL.revokeObjectURL(burl);finish();};
-      audio.onerror=()=>{URL.revokeObjectURL(burl);_bswSpeakFallback(text,onEnd);};
-      if(onEnd)setTimeout(finish,20000);
-      audio.play().catch(()=>_bswSpeakFallback(text,onEnd));
-    })
-    .catch(()=>_bswSpeakFallback(text,onEnd));
+  // 直接使用 SpeechSynthesis，優先選 zh-TW 語音
+  _bswSpeakFallback(text, onEnd);
 }
 function _bswSpeakFallback(text,onEnd){
-  if(!window.speechSynthesis)return;
+  if(!window.speechSynthesis){if(onEnd)onEnd();return;}
   window.speechSynthesis.cancel();
   function doSpeak(voice){
     const utt=new SpeechSynthesisUtterance(text);
-    utt.lang=voice?voice.lang:'zh-TW';
-    utt.rate=1.0;utt.pitch=1;utt.volume=1;
+    utt.lang='zh-TW';
+    utt.rate=0.9;utt.pitch=1;utt.volume=1;
     if(voice)utt.voice=voice;
     let done=false;
     function finish(){if(done)return;done=true;if(onEnd)onEnd();}
     utt.onend=finish;utt.onerror=finish;
-    if(onEnd)setTimeout(finish,15000);
+    if(onEnd)setTimeout(finish,20000);
     window.speechSynthesis.speak(utt);
   }
   function pickVoice(){
     const vs=window.speechSynthesis.getVoices();if(!vs.length)return null;
-    const isWin=navigator.userAgent.includes('Windows');
-    const order=isWin?['zh-CN','zh-TW']:['zh-TW','zh-CN'];
-    for(const lang of order){
+    // 優先順序：zh-TW 本地語音 > zh-TW 任何 > cmn-TW > zh-HK > zh-CN
+    const pref=['zh-TW','cmn-TW','zh-HK','zh-CN'];
+    for(const lang of pref){
       const v=vs.find(v=>v.lang===lang&&v.localService)||vs.find(v=>v.lang===lang);
       if(v)return v;
     }
@@ -1153,19 +1139,20 @@ function showBlockedSlotWarning(r,slots,onProceed){
   // 直接朗讀警告詞，不播警報聲
   document.getElementById('bsw-icon').textContent='🔊';
   bswSpeak(speakText, ()=>{
+      // 確認 overlay 還存在才更新 DOM（避免使用者已關閉時的 null 錯誤）
+      if(!document.getElementById('bsw-overlay'))return;
       const notice=document.getElementById('bsw-speaking-notice');
       const consent=document.getElementById('bsw-consent-wrap');
-      const cancelBtn=document.getElementById('bsw-cancel-btn');
       const confirmBtn=document.getElementById('bsw-confirm-btn');
       const inp=document.getElementById('bsw-teacher');
+      const icon=document.getElementById('bsw-icon');
       if(notice){notice.innerHTML='<span style="color:var(--G);font-size:15px">✅</span><span style="color:var(--G)">警告播放完畢，現在可以操作</span>';}
       if(consent){consent.style.opacity='';consent.style.pointerEvents='';}
-      // cancelBtn 一開始即可用，無需解鎖
       if(confirmBtn){confirmBtn.disabled=false;confirmBtn.style.opacity='';confirmBtn.style.pointerEvents='';}
       if(inp){inp.disabled=false;inp.focus();}
-      document.getElementById('bsw-icon').textContent='🚫';
+      if(icon){icon.textContent='🚫';}
       // 3秒後淡出提示
-      setTimeout(()=>{if(notice)notice.style.display='none';},3000);
+      setTimeout(()=>{if(notice&&notice.parentNode)notice.style.display='none';},3000);
   });
 }
 function closeBSW(){
