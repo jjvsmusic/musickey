@@ -1023,10 +1023,34 @@ function firePendingTTS(){
 function bswSpeak(text, onEnd){
   if(!window.speechSynthesis)return;
   window.speechSynthesis.cancel();
-  const utt=new SpeechSynthesisUtterance(text);
-  utt.lang='zh-TW';utt.rate=1.15;utt.pitch=1;utt.volume=1;
-  if(onEnd)utt.onend=onEnd;
-  window.speechSynthesis.speak(utt);
+  function doSpeak(voice){
+    const utt=new SpeechSynthesisUtterance(text);
+    utt.lang='zh-TW';utt.rate=1.15;utt.pitch=1;utt.volume=1;
+    if(voice)utt.voice=voice;
+    if(onEnd)utt.onend=onEnd;
+    // 若沒有中文語音但有 onEnd，1分鐘後強制觸發避免卡住
+    if(onEnd){const t=setTimeout(onEnd,60000);utt.onend=()=>{clearTimeout(t);onEnd();};}
+    window.speechSynthesis.speak(utt);
+  }
+  function pickVoice(){
+    const voices=window.speechSynthesis.getVoices();
+    if(!voices.length)return null;
+    // 依優先序找中文語音
+    return voices.find(v=>v.lang==='zh-TW')
+      ||voices.find(v=>v.lang==='zh-TW'&&v.localService)
+      ||voices.find(v=>v.lang.startsWith('zh'))
+      ||voices.find(v=>/chinese|mandarin|台灣|普通話|國語/i.test(v.name))
+      ||null;
+  }
+  const v=pickVoice();
+  if(v||window.speechSynthesis.getVoices().length){doSpeak(v);}
+  else{
+    // 語音清單尚未載入，等 onvoiceschanged
+    window.speechSynthesis.onvoiceschanged=()=>{
+      window.speechSynthesis.onvoiceschanged=null;
+      doSpeak(pickVoice());
+    };
+  }
 }
 
 function playWarningBeeps(onDone){
