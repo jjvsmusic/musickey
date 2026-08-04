@@ -211,6 +211,25 @@ tr.dg-src{opacity:.35}
 /* ── WEEKDAY ── */
 .wd{font-size:11px;color:var(--mut);font-weight:400}
 
+/* ── BLOCKED SLOT WARNING OVERLAY ── */
+.bsw-overlay{position:fixed;inset:0;z-index:9000;display:flex;align-items:center;justify-content:center;padding:1rem;
+  background:rgba(140,0,0,.92);animation:bsw-pulse 1s ease-in-out infinite alternate}
+@keyframes bsw-pulse{from{background:rgba(140,0,0,.88)}to{background:rgba(200,0,0,.97)}}
+.bsw-box{background:#fff;border-radius:var(--rl);padding:1.75rem;max-width:440px;width:100%;box-shadow:0 8px 40px rgba(0,0,0,.5);text-align:center;position:relative}
+.bsw-icon{font-size:52px;margin-bottom:.5rem;animation:bsw-shake .5s ease-in-out infinite alternate}
+@keyframes bsw-shake{from{transform:rotate(-4deg) scale(1.05)}to{transform:rotate(4deg) scale(.97)}}
+.bsw-title{font-size:20px;font-weight:700;color:var(--R);margin-bottom:.5rem}
+.bsw-msg{font-size:14px;color:var(--txt);line-height:1.6;margin-bottom:1rem}
+.bsw-slots{background:var(--Rl);border:1.5px solid var(--Rb);border-radius:var(--r);padding:.75rem;margin-bottom:1rem;font-size:13px;color:var(--R);font-weight:500}
+.bsw-consent{background:var(--Al);border:1.5px solid var(--Ab);border-radius:var(--r);padding:1rem;margin-bottom:1rem;text-align:left}
+.bsw-consent-lbl{font-size:12px;font-weight:600;color:var(--A);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.5rem}
+
+/* ── BLOCKED SLOTS ADMIN ── */
+.bs-room-chip{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;border:1.5px solid var(--bdr);background:var(--sur);font-size:12px;cursor:pointer;transition:all .12s;user-select:none}
+.bs-room-chip.sel{background:var(--AC);color:#fff;border-color:var(--AC)}
+.bs-slot-row{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);margin-bottom:6px}
+.bs-slot-rooms{font-size:11px;color:var(--mut);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
 /* ════════════════════════════════════════
    手機版響應式（< 600px）
    ════════════════════════════════════════ */
@@ -366,6 +385,7 @@ tr.dg-src{opacity:.35}
       <div class="si" id="nav-notice" onclick="aN('notice')">📢 公告說明</div>
       <div class="si" id="nav-accts" onclick="aN('accts')">🔐 帳號管理</div>
       <div class="si" id="nav-locks" onclick="aN('locks')">🔒 門鎖控制</div>
+      <div class="si" id="nav-bslots" onclick="aN('bslots')">⏰ 時段限制</div>
       <div class="si dan" id="nav-maintain" onclick="aN('maintain')">🗑 系統維護</div>
     </div>
     <div class="dvd" style="margin:.5rem 0"></div>
@@ -486,6 +506,11 @@ tr.dg-src{opacity:.35}
         ⚠️ 遠端控制需要門鎖為 Online 狀態。藍牙鎖需在網關範圍內才能操作。
       </div>
       <div id="lock-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px"></div>
+    </div>
+    <div id="adm-bslots" class="ap">
+      <div class="tb"><h2>⏰ 時段限制設定</h2><button class="btn btn-p btn-sm" onclick="openAddBSlot()">+ 新增限制時段</button></div>
+      <div class="alert ai" style="font-size:12px;margin-bottom:1rem">設定後，學生借用時若當前時間在限制時段內，系統會發出醒目警告並要求填寫同意教師姓名才能繼續。</div>
+      <div id="bslots-list"></div>
     </div>
     <div id="adm-maintain" class="ap">
       <div class="tb"><h2>🗑 系統維護</h2></div>
@@ -631,6 +656,7 @@ function ensureDB(){
   if(DB.ids.rep==null)DB.ids.rep=10;
   if(DB.ids.ppl==null)DB.ids.ppl=30;
   if(DB.notice==null)DB.notice='';
+  if(!Array.isArray(DB.blockedSlots))DB.blockedSlots=[];
 }
 
 function fallbackLoad(){
@@ -863,8 +889,15 @@ function setFL(btn,f){
 function _roomCard(r){
   var cc=r.kd?'dk':r.status,badge='',info='';
   if(r.kd){badge='<div class="rb bdk">🚫 禁止借用</div>';}
-  else if(r.status==='av'){badge='<div class="rb bav">✓ 可借用</div>';}
-  else if(r.status==='bw'){
+  else if(r.status==='av'){
+    const blk=getBlockedSlotsForRoom(r.id);
+    if(blk.length){
+      badge='<div class="rb" style="background:var(--Al);color:var(--A);border-color:var(--Ab)">⏰ 限制時段</div>';
+      info='<div class="ri" style="color:var(--A);font-size:10px">'+blk.map(s=>s.label||s.start+'–'+s.end).join('、')+'</div>';
+    } else {
+      badge='<div class="rb bav">✓ 可借用</div>';
+    }
+  } else if(r.status==='bw'){
     badge='<div class="rb bbw">● 借用中</div>';
     info='<div class="ri">'+r.borrower.cls+'<br>'+(r.borrower.seatNo||'')+'號 '+r.borrower.name+'<br>自 '+r.borrower.time+' 起<br><span style="color:var(--AC);font-size:10px">'+(r.borrower.reason||'')+'</span></div>';
   }else{badge='<div class="rb brp">⚠ 維修中</div>';info='<div class="ri">'+(r.issue||'')+'</div>';}
@@ -953,7 +986,114 @@ function openRM(id){
   const r=DB.rooms.find(x=>x.id===id);if(!r)return;
   if(r.kd){showT('此琴房禁止借用鑰匙','tw2');return;}
   if(r.status==='rp'){showT('此琴房維修中','tw2');return;}
-  r.status==='av'?openBM(r):openRetM(r);
+  if(r.status==='av'){
+    const blocked=getBlockedSlotsForRoom(r.id);
+    if(blocked.length){
+      showBlockedSlotWarning(r,blocked,()=>openBM(r));
+      return;
+    }
+    openBM(r);
+  } else {
+    openRetM(r);
+  }
+}
+
+/* ═══ BLOCKED SLOTS CHECK ═══ */
+function getBlockedSlotsForRoom(roomId){
+  if(!Array.isArray(DB.blockedSlots))return[];
+  const now=new Date();
+  const hhmm=pad(now.getHours())+':'+pad(now.getMinutes());
+  return DB.blockedSlots.filter(s=>{
+    if(!s.rooms||!s.rooms.includes(roomId))return false;
+    if(!s.start||!s.end)return false;
+    // handle overnight slots (e.g. 22:00-08:00)
+    if(s.start<=s.end){return hhmm>=s.start&&hhmm<s.end;}
+    else{return hhmm>=s.start||hhmm<s.end;}
+  });
+}
+
+function bswSpeak(text, onEnd){
+  if(!window.speechSynthesis)return;
+  window.speechSynthesis.cancel();
+  const utt=new SpeechSynthesisUtterance(text);
+  utt.lang='zh-TW';utt.rate=0.88;utt.pitch=1;utt.volume=1;
+  if(onEnd)utt.onend=onEnd;
+  window.speechSynthesis.speak(utt);
+}
+
+function playWarningBeeps(onDone){
+  try{
+    const ctx=new(window.AudioContext||window.webkitAudioContext)();
+    function beep(freq,t,dur,type='square'){
+      const o=ctx.createOscillator();const g=ctx.createGain();
+      o.connect(g);g.connect(ctx.destination);
+      o.type=type;o.frequency.value=freq;
+      g.gain.setValueAtTime(0,ctx.currentTime+t);
+      g.gain.linearRampToValueAtTime(.45,ctx.currentTime+t+.02);
+      g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+t+dur);
+      o.start(ctx.currentTime+t);o.stop(ctx.currentTime+t+dur+.05);
+    }
+    // 三聲急促警報
+    beep(880,0,.18);beep(880,.24,.18);beep(880,.48,.18);
+    beep(660,.72,.28);beep(440,1.05,.4,'sawtooth');
+    setTimeout(onDone,1500);
+  }catch(e){if(onDone)onDone();}
+}
+
+function showBlockedSlotWarning(r,slots,onProceed){
+  const slotDesc=slots.map(s=>`${s.label||'限制時段'} (${s.start}–${s.end})`).join('、');
+
+  // 先播警報聲，完成後朗讀
+  playWarningBeeps(()=>{
+    bswSpeak(`注意！${r.name} 琴房，此時段不開放借用。若需借用，請填寫同意教師姓名。`);
+  });
+
+  const slotDesc=slots.map(s=>`${s.label||'限制時段'} (${s.start}–${s.end})`).join('、');
+  const el=document.createElement('div');
+  el.className='bsw-overlay';
+  el.id='bsw-overlay';
+  el.innerHTML=`
+    <div class="bsw-box">
+      <div class="bsw-icon">🚫</div>
+      <div class="bsw-title">此時段不開放借用</div>
+      <div class="bsw-msg">${escHtml(r.name)} 目前在限制時段內，<strong>不建議借用</strong>。</div>
+      <div class="bsw-slots">⏰ ${escHtml(slotDesc)}</div>
+      <div class="bsw-consent">
+        <div class="bsw-consent-lbl">若仍需借用，請填寫同意教師姓名</div>
+        <input type="text" id="bsw-teacher" placeholder="請輸入同意借用的教師姓名..."
+          style="width:100%;padding:9px 12px;border-radius:var(--r);border:2px solid var(--Ab);font-size:14px;font-family:'Noto Sans TC',sans-serif;margin-top:.25rem">
+        <div style="font-size:11px;color:var(--mut);margin-top:.4rem">此紀錄將儲存以供事後查閱</div>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:center">
+        <button class="btn btn-o" style="min-width:90px" onclick="closeBSW()">❌ 取消借用</button>
+        <button class="btn btn-d" style="min-width:130px" onclick="confirmBSW()" id="bsw-confirm-btn">⚠ 仍要借用</button>
+      </div>
+    </div>`;
+  document.body.appendChild(el);
+  window._bswProceed=onProceed;
+  setTimeout(()=>document.getElementById('bsw-teacher')?.focus(),100);
+}
+function closeBSW(){
+  const el=document.getElementById('bsw-overlay');
+  if(el)el.remove();
+  try{window.speechSynthesis&&window.speechSynthesis.cancel();}catch(e){}
+  window._bswProceed=null;
+  window._bswTeacher=null;
+}
+function confirmBSW(){
+  const t=(document.getElementById('bsw-teacher')?.value||'').trim();
+  if(!t){
+    document.getElementById('bsw-teacher').style.borderColor='var(--R)';
+    document.getElementById('bsw-teacher').focus();
+    // shake
+    const inp=document.getElementById('bsw-teacher');
+    inp.style.animation='bsw-shake .4s ease';
+    setTimeout(()=>inp.style.animation='',500);
+    return;
+  }
+  window._bswTeacher=t;
+  closeBSW();
+  if(window._bswProceed)window._bswProceed();
 }
 function openBM(r){
   var Q='&quot;';
@@ -1270,7 +1410,16 @@ function confBorrow(id){
   const cls2=borrowCls;
   const person={name:personName};
   r.status='bw';r.borrower={cls:cls2,seatNo:padded,name:personName,time:nowT(),reason:rt};
-  DB.history.unshift({id:++DB.ids.h,room:r.name,rid:r.id,cls:cls2,seatNo:padded,name:personName,borrowTime:ts(),returnTime:null,photo:cpBorrow||null,reason:rt});
+  const _approvedBy=window._bswTeacher||null;
+  DB.history.unshift({id:++DB.ids.h,room:r.name,rid:r.id,cls:cls2,seatNo:padded,name:personName,borrowTime:ts(),returnTime:null,photo:cpBorrow||null,reason:rt,approvedBy:_approvedBy});
+  window._bswTeacher=null;
+  // 若有教師同意（限制時段借用），朗讀完整借用通知
+  if(_approvedBy){
+    setTimeout(()=>{
+      const seatTxt=padded?padded+'號 ':'';
+      bswSpeak(`注意！${cls2} ${seatTxt}${personName}，借用${r.name}琴房，由${_approvedBy}老師同意。`);
+    },700);
+  }
   cpBorrow=null;
   if(vsBorrow){vsBorrow.getTracks().forEach(t=>t.stop());vsBorrow=null;}
   nkReset('bn');
@@ -1703,6 +1852,7 @@ function renderPubH(){
   if(!data.length){document.getElementById('ph-tbl').innerHTML='<div style="padding:2rem;text-align:center;color:var(--mut)">無符合紀錄</div>';return;}
   const rows=data.slice(0,120).map(h=>{
     const ret=h.returner?`${h.returner.cls} ${h.returner.seatNo||''}號 ${h.returner.name}`:'—';
+    const apv=h.approvedBy?`<span style="font-size:11px;background:var(--Al);color:var(--A);border:1px solid var(--Ab);border-radius:12px;padding:1px 7px">⚠ ${escHtml(h.approvedBy)}</span>`:'';
     return`<tr>
     <td style="font-family:monospace;font-weight:500">${h.room}</td>
     <td>${h.cls}</td>
@@ -1711,9 +1861,10 @@ function renderPubH(){
     <td><span style="font-size:12px;color:var(--mut)">${h.reason||'—'}</span></td>
     <td style="font-size:12px;white-space:nowrap">${fmtDate(h.borrowTime)}</td>
     <td style="font-size:12px;white-space:nowrap">${fmtDate(h.returnTime)}</td>
-    <td style="font-size:12px;color:var(--mut)">${ret}</td></tr>`;
+    <td style="font-size:12px;color:var(--mut)">${ret}</td>
+    <td>${apv}</td></tr>`;
   }).join('');
-  document.getElementById('ph-tbl').innerHTML=`<table><thead><tr><th>琴房</th><th>班級</th><th>座號</th><th>借用者</th><th>原因</th><th>借出時間</th><th>歸還時間</th><th>歸還者</th></tr></thead><tbody>${rows}</tbody></table>`;
+  document.getElementById('ph-tbl').innerHTML=`<table><thead><tr><th>琴房</th><th>班級</th><th>座號</th><th>借用者</th><th>原因</th><th>借出時間</th><th>歸還時間</th><th>歸還者</th><th>教師同意</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 function vPhoto(id){
   if(!Array.isArray(DB.history))DB.history=[];
@@ -1739,6 +1890,7 @@ function aN(p){
   if(p==='notice'){const t=document.getElementById('notice-text');if(t)t.value=DB.notice||'';}
   if(p==='accts')renderAccts();
   if(p==='locks'){renderLockGrid();loadLockTime();}
+  if(p==='bslots'){renderBSlots();}
   if(p==='maintain'){renderMaintain();}
 }
 function renderAllAdm(){renderPplTbl();renderRMgmt();popAHF();renderAdmH();renderRepTbl();renderRTypes();renderBRsn();renderAccts();const t=document.getElementById('notice-text');if(t)t.value=DB.notice||'';}
@@ -2014,6 +2166,7 @@ function renderAdmH(){
   const rows=data.slice(0,200).map(h=>{
     const ret=h.returner?`${h.returner.cls} ${h.returner.seatNo||''}號 ${h.returner.name}`
       :(h.note?`<span style="color:var(--mut);font-size:11px">${h.note}</span>`:'<span style="color:var(--mut)">—</span>');
+    const apvA=h.approvedBy?`<span style="font-size:11px;background:var(--Al);color:var(--A);border:1px solid var(--Ab);border-radius:12px;padding:1px 7px;white-space:nowrap">⚠ ${escHtml(h.approvedBy)}</span>`:'<span style="color:var(--mut);font-size:11px">—</span>';
     return`<tr>
     <td style="text-align:center;width:32px"><input type="checkbox" class="ah-chk" data-id="${h.id}" style="width:15px;height:15px;accent-color:var(--R);cursor:pointer"></td>
     <td style="font-family:monospace;font-weight:500">${h.room}</td>
@@ -2024,6 +2177,7 @@ function renderAdmH(){
     <td style="font-size:11px;white-space:nowrap">${fmtDate(h.borrowTime)}</td>
     <td style="font-size:11px;white-space:nowrap">${h.returnTime?fmtDate(h.returnTime):'<span style="color:var(--R)">未歸還</span>'}</td>
     <td style="font-size:12px">${ret}</td>
+    <td>${apvA}</td>
     <td>${h.photo
       ?`<img src="${h.photo}" class="pt" onclick="vPhoto(${h.id})" title="點擊放大查看照片" style="cursor:zoom-in">`
       :'<span style="font-size:11px;color:var(--mut)">無</span>'}</td>
@@ -2031,7 +2185,7 @@ function renderAdmH(){
   }).join('');
   document.getElementById('ah-tbl').innerHTML=`<table><thead><tr>
     <th style="width:32px"><input type="checkbox" id="ah-chk-all" onchange="ahToggleAll(this.checked)" style="width:15px;height:15px;accent-color:var(--R);cursor:pointer"></th>
-    <th>琴房</th><th>班級</th><th>座號</th><th>借用者</th><th>原因</th><th>借出</th><th>歸還</th><th>歸還者</th><th>照片</th><th></th>
+    <th>琴房</th><th>班級</th><th>座號</th><th>借用者</th><th>原因</th><th>借出</th><th>歸還</th><th>歸還者</th><th>教師同意</th><th>照片</th><th></th>
   </tr></thead><tbody>${rows}</tbody></table>`;
 }
 function ahToggleAll(checked){
@@ -2443,6 +2597,87 @@ async function checkAutoDelete(){
 // 每次檢查只是比較時間戳，不呼叫 Storage，完全免費
 setTimeout(checkAutoDelete, 5000);
 setInterval(checkAutoDelete, 6*3600000);
+
+/* ═══ BLOCKED SLOTS ADMIN ═══ */
+function renderBSlots(){
+  const el=document.getElementById('bslots-list');if(!el)return;
+  if(!Array.isArray(DB.blockedSlots))DB.blockedSlots=[];
+  if(!DB.blockedSlots.length){
+    el.innerHTML='<div style="text-align:center;padding:2rem;color:var(--mut);font-size:13px">尚未設定任何限制時段<br><small>點擊右上角「+ 新增限制時段」開始設定</small></div>';
+    return;
+  }
+  el.innerHTML=DB.blockedSlots.map((s,i)=>{
+    const roomNames=s.rooms.map(rid=>{const r=DB.rooms.find(x=>x.id===rid);return r?r.name:'?';}).join('、');
+    return`<div class="bs-slot-row">
+      <div style="min-width:90px;font-size:14px;font-weight:600;font-family:'IBM Plex Mono',monospace;color:var(--R)">${escHtml(s.start)} – ${escHtml(s.end)}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:500">${escHtml(s.label||'未命名限制')}</div>
+        <div class="bs-slot-rooms">🏠 ${escHtml(roomNames||'（尚未指定琴房）')}</div>
+      </div>
+      <button class="btn btn-o btn-xs" onclick="openEditBSlot(${i})">✏ 編輯</button>
+      <button class="btn btn-d btn-xs" onclick="delBSlot(${i})">刪除</button>
+    </div>`;
+  }).join('');
+}
+
+function openAddBSlot(){_openBSlotModal(null);}
+function openEditBSlot(idx){_openBSlotModal(idx);}
+
+function _openBSlotModal(idx){
+  if(!Array.isArray(DB.blockedSlots))DB.blockedSlots=[];
+  const isEdit=idx!=null;
+  const s=isEdit?DB.blockedSlots[idx]:{label:'',start:'12:00',end:'14:00',rooms:[]};
+  const roomChips=DB.rooms.map(r=>{
+    const sel=s.rooms.includes(r.id);
+    return`<span class="bs-room-chip${sel?' sel':''}" data-rid="${escHtml(r.id)}" onclick="bsToggleRoom(this)">${escHtml(r.floor)} ${escHtml(r.name)}</span>`;
+  }).join(' ');
+  showM(`<div class="mt">${isEdit?'✏ 編輯':'+ 新增'}限制時段</div>
+    <div class="fg"><label class="fl">說明標籤</label>
+      <input type="text" id="bs-label" placeholder="例：午休時間、下課時段..." value="${escHtml(s.label||'')}"></div>
+    <div style="display:flex;gap:12px">
+      <div class="fg" style="flex:1"><label class="fl">開始時間</label>
+        <input type="time" id="bs-start" value="${escHtml(s.start||'12:00')}"></div>
+      <div class="fg" style="flex:1"><label class="fl">結束時間</label>
+        <input type="time" id="bs-end" value="${escHtml(s.end||'13:00')}"></div>
+    </div>
+    <div class="fg">
+      <label class="fl">套用琴房（可複選）</label>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;padding:.5rem 0" id="bs-room-chips">${roomChips}</div>
+      <div style="display:flex;gap:6px;margin-top:.4rem">
+        <button class="btn btn-o btn-xs" onclick="bsSelectAllRooms()">全選</button>
+        <button class="btn btn-o btn-xs" onclick="bsClearRooms()">清除</button>
+      </div>
+    </div>
+    <div class="ma">
+      <button class="btn btn-o" onclick="closeM()">取消</button>
+      <button class="btn btn-p" onclick="saveBSlot(${isEdit?idx:'null'})">儲存</button>
+    </div>`,true);
+}
+
+function bsToggleRoom(chip){chip.classList.toggle('sel');}
+function bsSelectAllRooms(){document.querySelectorAll('#bs-room-chips .bs-room-chip').forEach(c=>c.classList.add('sel'));}
+function bsClearRooms(){document.querySelectorAll('#bs-room-chips .bs-room-chip').forEach(c=>c.classList.remove('sel'));}
+
+function saveBSlot(idx){
+  const label=(document.getElementById('bs-label')?.value||'').trim();
+  const start=document.getElementById('bs-start')?.value;
+  const end=document.getElementById('bs-end')?.value;
+  if(!start||!end){showT('請設定時間','tw2');return;}
+  if(start===end){showT('開始和結束時間不能相同','tw2');return;}
+  const rooms=[...document.querySelectorAll('#bs-room-chips .bs-room-chip.sel')].map(c=>c.dataset.rid);
+  if(!rooms.length){showT('請至少選擇一間琴房','tw2');return;}
+  const slot={label,start,end,rooms};
+  if(!Array.isArray(DB.blockedSlots))DB.blockedSlots=[];
+  if(idx!=null&&idx!=='null'){DB.blockedSlots[idx]=slot;}
+  else{DB.blockedSlots.push(slot);}
+  saveDB();closeM();renderBSlots();showT('限制時段已儲存','ts');
+}
+
+function delBSlot(idx){
+  if(!confirm('確認刪除此限制時段？'))return;
+  DB.blockedSlots.splice(idx,1);
+  saveDB();renderBSlots();showT('已刪除','ti');
+}
 
 /* ═══ 門鎖控制 ═══ */
 const ADMIN_KEY = 'musickey2024';
