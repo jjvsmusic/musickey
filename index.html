@@ -1021,6 +1021,20 @@ function firePendingTTS(){
   setTimeout(()=>bswSpeak(txt),400);
 }
 function bswSpeak(text, onEnd){
+  // 優先用 Google Translate TTS（音質自然、跨平台一致），失敗才 fallback Web Speech API
+  try{
+    const url='https://translate.googleapis.com/translate_tts?ie=UTF-8&tl=zh-TW&client=gtx&q='+encodeURIComponent(text);
+    const audio=new Audio(url);
+    audio.volume=1;
+    let done=false;
+    function finish(){if(done)return;done=true;if(onEnd)onEnd();}
+    audio.onended=finish;
+    audio.onerror=()=>_bswSpeakFallback(text,onEnd);
+    if(onEnd)setTimeout(finish,20000);
+    audio.play().catch(()=>_bswSpeakFallback(text,onEnd));
+  }catch(e){_bswSpeakFallback(text,onEnd);}
+}
+function _bswSpeakFallback(text,onEnd){
   if(!window.speechSynthesis)return;
   window.speechSynthesis.cancel();
   function doSpeak(voice){
@@ -1030,32 +1044,23 @@ function bswSpeak(text, onEnd){
     if(voice)utt.voice=voice;
     let done=false;
     function finish(){if(done)return;done=true;if(onEnd)onEnd();}
-    utt.onend=finish;
-    utt.onerror=finish;
-    if(onEnd)setTimeout(finish,15000); // 最多等15秒防卡住
+    utt.onend=finish;utt.onerror=finish;
+    if(onEnd)setTimeout(finish,15000);
     window.speechSynthesis.speak(utt);
   }
   function pickVoice(){
-    const vs=window.speechSynthesis.getVoices();
-    if(!vs.length)return null;
+    const vs=window.speechSynthesis.getVoices();if(!vs.length)return null;
     const isWin=navigator.userAgent.includes('Windows');
-    // Windows 優先選 zh-CN（Huihui 等品質較好），Mac/其他優先 zh-TW
     const order=isWin?['zh-CN','zh-TW']:['zh-TW','zh-CN'];
     for(const lang of order){
-      const v=vs.find(v=>v.lang===lang&&v.localService)
-             ||vs.find(v=>v.lang===lang);
+      const v=vs.find(v=>v.lang===lang&&v.localService)||vs.find(v=>v.lang===lang);
       if(v)return v;
     }
     return vs.find(v=>v.lang.startsWith('zh'))||null;
   }
   const voices=window.speechSynthesis.getVoices();
   if(voices.length){doSpeak(pickVoice());}
-  else{
-    window.speechSynthesis.onvoiceschanged=()=>{
-      window.speechSynthesis.onvoiceschanged=null;
-      doSpeak(pickVoice());
-    };
-  }
+  else{window.speechSynthesis.onvoiceschanged=()=>{window.speechSynthesis.onvoiceschanged=null;doSpeak(pickVoice());};}
 }
 
 function playWarningBeeps(onDone){
