@@ -1025,74 +1025,49 @@ function firePendingTTS(){
    2. Google Translate TTS fetch+blob（繞過 autoplay 限制）
    3. 文字顯示 fallback（靜音但不卡住流程）
 */
-// 排除 eSpeak 等低品質語音的關鍵字
-const _TTS_BAD_VOICE = /espeak|espeak-ng|eSpeak/i;
+// Firebase Functions TTS Proxy URL
+const _TTS_PROXY = 'https://us-central1-musickeyjjvs.cloudfunctions.net/ttsProxy';
 
 function bswSpeak(text, onEnd){
-  // 先嘗試 Google Translate fetch（最可靠的中文音質）
-  // 只有在 fetch 完全失敗時才 fallback 到非 eSpeak 的 SpeechSynthesis
-  tryGoogleFetch(text, onEnd);
-}
+  const chunks = _ttsChunk(text, 150);
+  let idx = 0, fallbackTriggered = false;
 
-function tryGoogleFetch(text, onEnd){
-  const chunks=_ttsChunk(text,150);
-  let idx=0,aborted=false;
   function next(){
-    if(aborted)return;
-    if(idx>=chunks.length){if(onEnd)onEnd();return;}
-    const q=encodeURIComponent(chunks[idx++]);
-    const urls=[
-      'https://translate.googleapis.com/translate_tts?ie=UTF-8&tl=zh-TW&client=gtx&q='+q,
-      'https://translate.google.com/translate_tts?ie=UTF-8&tl=zh-TW&client=tw-ob&q='+q
-    ];
-    tryUrl(urls,0);
+    if(fallbackTriggered) return;
+    if(idx >= chunks.length){ if(onEnd) onEnd(); return; }
+    const q = encodeURIComponent(chunks[idx++]);
+    const url = _TTS_PROXY + '?q=' + q;
+    const a = document.createElement('audio');
+    let timer = setTimeout(() => { a.src=''; triggerFallback(); }, 8000);
+    a.oncanplaythrough = () => {
+      clearTimeout(timer);
+      a.play().catch(() => { clearTimeout(timer); triggerFallback(); });
+    };
+    a.onended = () => next();
+    a.onerror = () => { clearTimeout(timer); triggerFallback(); };
+    a.src = url;
+    a.load();
   }
-  function tryUrl(urls,i){
-    if(i>=urls.length){aborted=true;tryGoodSpeechSynthesis(text,onEnd);return;}
-    fetch(urls[i])
-      .then(r=>{if(!r.ok)throw 0;return r.blob();})
-      .then(blob=>{
-        const burl=URL.createObjectURL(blob);
-        const a=new Audio(burl);
-        a.onended=()=>{URL.revokeObjectURL(burl);next();};
-        a.onerror=()=>{URL.revokeObjectURL(burl);tryUrl(urls,i+1);};
-        a.play().catch(()=>{URL.revokeObjectURL(burl);tryUrl(urls,i+1);});
-      })
-      .catch(()=>tryUrl(urls,i+1));
-  }
-  next();
-}
 
-function tryGoodSpeechSynthesis(text, onEnd){
-  // 只接受非 eSpeak 的中文語音
-  if(!window.speechSynthesis){if(onEnd)onEnd();return;}
-  function attempt(voices){
-    const good=voices.filter(v=>!_TTS_BAD_VOICE.test(v.name)&&/^zh/i.test(v.lang));
-    const zh=good.find(v=>/zh[-_](TW|HK)/i.test(v.lang))||good[0];
-    if(!zh){
-      console.warn('[TTS] 無可用中文語音（eSpeak 已排除），靜音完成');
-      if(onEnd)onEnd();return;
-    }
+  function triggerFallback(){
+    if(fallbackTriggered) return;
+    fallbackTriggered = true;
+    // 最後手段：eSpeak（雖然音質差，但至少有聲音）
+    if(!window.speechSynthesis){ if(onEnd) onEnd(); return; }
     window.speechSynthesis.cancel();
-    const utt=new SpeechSynthesisUtterance(text);
-    utt.voice=zh;utt.lang=zh.lang;utt.rate=0.88;utt.pitch=1;utt.volume=1;
-    let done=false;
-    function finish(){if(done)return;done=true;if(onEnd)onEnd();}
-    utt.onend=finish;utt.onerror=finish;
-    setTimeout(finish,25000);
+    const utt = new SpeechSynthesisUtterance(text);
+    utt.lang = 'zh-TW'; utt.rate = 0.8; utt.pitch = 1; utt.volume = 1;
+    const vs = window.speechSynthesis.getVoices();
+    const zh = vs.find(v=>/^zh/i.test(v.lang)) || null;
+    if(zh) utt.voice = zh;
+    let done = false;
+    function finish(){ if(done) return; done=true; if(onEnd) onEnd(); }
+    utt.onend = finish; utt.onerror = finish;
+    setTimeout(finish, 25000);
     window.speechSynthesis.speak(utt);
   }
-  const vs=window.speechSynthesis.getVoices();
-  if(vs.length){attempt(vs);}
-  else{
-    let waited=false;
-    window.speechSynthesis.onvoiceschanged=()=>{
-      if(waited)return;waited=true;
-      window.speechSynthesis.onvoiceschanged=null;
-      attempt(window.speechSynthesis.getVoices());
-    };
-    setTimeout(()=>{if(!waited){waited=true;window.speechSynthesis.onvoiceschanged=null;if(onEnd)onEnd();}},2000);
-  }
+
+  next();
 }
 
 function _ttsChunk(text,maxLen){
