@@ -1012,7 +1012,12 @@ function getBlockedSlotsForRoom(roomId){
   });
 }
 
-function bswSpeak(text, onEnd){
+function firePendingTTS(){
+  if(!window._pendingTTS)return;
+  const txt=window._pendingTTS;
+  window._pendingTTS=null;
+  setTimeout(()=>bswSpeak(txt),400);
+}
   if(!window.speechSynthesis)return;
   window.speechSynthesis.cancel();
   const utt=new SpeechSynthesisUtterance(text);
@@ -1468,15 +1473,12 @@ function confBorrow(id){
   const person={name:personName};
   r.status='bw';r.borrower={cls:cls2,seatNo:padded,name:personName,time:nowT(),reason:rt};
   const _approvedBy=window._bswTeacher||null;
-  DB.history.unshift({id:++DB.ids.h,room:r.name,rid:r.id,cls:cls2,seatNo:padded,name:personName,borrowTime:ts(),returnTime:null,photo:cpBorrow||null,reason:rt,approvedBy:_approvedBy});
   window._bswTeacher=null;
-  // 若有教師同意（限制時段借用），朗讀完整借用通知
-  if(_approvedBy){
-    setTimeout(()=>{
-      const seatTxt=padded?padded+'號 ':'';
-      bswSpeak(`注意！${cls2} ${seatTxt}${personName}，借用${r.name}琴房，由${_approvedBy}老師同意。`);
-    },700);
-  }
+  DB.history.unshift({id:++DB.ids.h,room:r.name,rid:r.id,cls:cls2,seatNo:padded,name:personName,borrowTime:ts(),returnTime:null,photo:cpBorrow||null,reason:rt,approvedBy:_approvedBy});
+  // 儲存供後段流程完成後朗讀用
+  window._pendingTTS = _approvedBy
+    ? `注意！${cls2}${padded?' '+padded+'號 ':' '}${personName}，借用${r.name}琴房，由${_approvedBy}老師同意。`
+    : null;
   cpBorrow=null;
   if(vsBorrow){vsBorrow.getTracks().forEach(t=>t.stop());vsBorrow=null;}
   nkReset('bn');
@@ -1501,6 +1503,7 @@ function confBorrow(id){
         </div>
       </div>
       <div class="ma" style="justify-content:center"><button class="btn btn-p" onclick="closeM()" style="min-width:100px">我知道了</button></div>`);
+    firePendingTTS();
     return;
   }
 
@@ -1578,6 +1581,7 @@ function _doGetPassword(r, cls, padded, person, lockId) {
             </div>`);
           // 視窗顯示後才執行歸還與畫面更新
           setTimeout(()=>{ markReturnedByPwd(); }, 50);
+          firePendingTTS();
 
         } else {
           // 沒有密碼 → 實體鑰匙模式（塗鴉未連線或該鎖不支援）
@@ -1592,6 +1596,7 @@ function _doGetPassword(r, cls, padded, person, lockId) {
               </div>
             </div>
             <div class="ma" style="justify-content:center"><button class="btn btn-p" onclick="closeM()" style="min-width:100px">我知道了</button></div>`);
+          firePendingTTS();
         }
       })
       .catch(err => {
@@ -1608,6 +1613,7 @@ function _doGetPassword(r, cls, padded, person, lockId) {
             </div>
           </div>
           <div class="ma" style="justify-content:center"><button class="btn btn-p" onclick="closeM()" style="min-width:100px">我知道了</button></div>`);
+        firePendingTTS();
       });
   } catch(e) {
     closeM();
@@ -1617,6 +1623,7 @@ function _doGetPassword(r, cls, padded, person, lockId) {
         <div style="margin-top:1rem;color:var(--mut);font-size:13px">請至鑰匙存放處自取鑰匙</div>
       </div>
       <div class="ma" style="justify-content:center"><button class="btn btn-p" onclick="closeM()">我知道了</button></div>`);
+    firePendingTTS();
   }
 }
 
