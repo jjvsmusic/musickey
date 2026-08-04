@@ -1020,99 +1020,97 @@ function firePendingTTS(){
   window._pendingTTS=null;
   setTimeout(()=>bswSpeak(txt),400);
 }
-/* ── TTS：依序嘗試三種方式 ──
-   1. Google Translate TTS (audio 元素，Chromebook 最可靠)
-   2. ResponsiveVoice (免費，支援 zh-TW)
-   3. SpeechSynthesis fallback
+/* ── TTS：專為 Chromebook 設計的三層方案 ──
+   1. SpeechSynthesis（若有中文語音則最佳）
+   2. Google Translate TTS fetch+blob（繞過 autoplay 限制）
+   3. 文字顯示 fallback（靜音但不卡住流程）
 */
+// 排除 eSpeak 等低品質語音的關鍵字
+const _TTS_BAD_VOICE = /espeak|espeak-ng|eSpeak/i;
+
 function bswSpeak(text, onEnd){
-  _ttsGoogleAudio(text, onEnd);
+  // 先嘗試 Google Translate fetch（最可靠的中文音質）
+  // 只有在 fetch 完全失敗時才 fallback 到非 eSpeak 的 SpeechSynthesis
+  tryGoogleFetch(text, onEnd);
 }
-function _ttsGoogleAudio(text, onEnd){
-  const chunks=_ttsChunk(text,180);
-  let idx=0,failed=false;
-  function playNext(){
-    if(failed)return;
+
+function tryGoogleFetch(text, onEnd){
+  const chunks=_ttsChunk(text,150);
+  let idx=0,aborted=false;
+  function next(){
+    if(aborted)return;
     if(idx>=chunks.length){if(onEnd)onEnd();return;}
-    const chunk=chunks[idx++];
-    const url='https://translate.googleapis.com/translate_tts?ie=UTF-8&tl=zh-TW&client=gtx&q='+encodeURIComponent(chunk);
-    const audio=new Audio();
-    audio.volume=1;
-    let timer=setTimeout(()=>{audio.src='';fail();},8000);
-    audio.onended=()=>{clearTimeout(timer);playNext();};
-    audio.onerror=()=>{clearTimeout(timer);fail();};
-    audio.src=url;
-    audio.play().catch(()=>{clearTimeout(timer);fail();});
+    const q=encodeURIComponent(chunks[idx++]);
+    const urls=[
+      'https://translate.googleapis.com/translate_tts?ie=UTF-8&tl=zh-TW&client=gtx&q='+q,
+      'https://translate.google.com/translate_tts?ie=UTF-8&tl=zh-TW&client=tw-ob&q='+q
+    ];
+    tryUrl(urls,0);
   }
-  function fail(){
-    if(failed)return;failed=true;
-    console.warn('[TTS] Google Audio 失敗，改用 ResponsiveVoice');
-    _ttsResponsiveVoice(text,onEnd);
+  function tryUrl(urls,i){
+    if(i>=urls.length){aborted=true;tryGoodSpeechSynthesis(text,onEnd);return;}
+    fetch(urls[i])
+      .then(r=>{if(!r.ok)throw 0;return r.blob();})
+      .then(blob=>{
+        const burl=URL.createObjectURL(blob);
+        const a=new Audio(burl);
+        a.onended=()=>{URL.revokeObjectURL(burl);next();};
+        a.onerror=()=>{URL.revokeObjectURL(burl);tryUrl(urls,i+1);};
+        a.play().catch(()=>{URL.revokeObjectURL(burl);tryUrl(urls,i+1);});
+      })
+      .catch(()=>tryUrl(urls,i+1));
   }
-  playNext();
+  next();
 }
-function _ttsResponsiveVoice(text,onEnd){
-  if(window.responsiveVoice){
-    responsiveVoice.speak(text,'Chinese Taiwan Female',{
-      rate:0.9,pitch:1,volume:1,
-      onend:()=>{if(onEnd)onEnd();},
-      onerror:()=>{_ttsSpeechSynthesis(text,onEnd);}
-    });
-    return;
-  }
-  if(document._rvLoading){
-    const wait=setInterval(()=>{if(window.responsiveVoice){clearInterval(wait);_ttsResponsiveVoice(text,onEnd);}},200);
-    setTimeout(()=>{clearInterval(wait);_ttsSpeechSynthesis(text,onEnd);},5000);
-    return;
-  }
-  document._rvLoading=true;
-  const s=document.createElement('script');
-  s.src='https://code.responsivevoice.org/responsivevoice.js?key=FREE';
-  s.onload=()=>{_ttsResponsiveVoice(text,onEnd);};
-  s.onerror=()=>{_ttsSpeechSynthesis(text,onEnd);};
-  document.head.appendChild(s);
-}
-function _ttsSpeechSynthesis(text,onEnd){
+
+function tryGoodSpeechSynthesis(text, onEnd){
+  // 只接受非 eSpeak 的中文語音
   if(!window.speechSynthesis){if(onEnd)onEnd();return;}
-  window.speechSynthesis.cancel();
-  function doSpeak(voice){
+  function attempt(voices){
+    const good=voices.filter(v=>!_TTS_BAD_VOICE.test(v.name)&&/^zh/i.test(v.lang));
+    const zh=good.find(v=>/zh[-_](TW|HK)/i.test(v.lang))||good[0];
+    if(!zh){
+      console.warn('[TTS] 無可用中文語音（eSpeak 已排除），靜音完成');
+      if(onEnd)onEnd();return;
+    }
+    window.speechSynthesis.cancel();
     const utt=new SpeechSynthesisUtterance(text);
-    utt.lang='zh-TW';utt.rate=0.9;utt.pitch=1;utt.volume=1;
-    if(voice)utt.voice=voice;
+    utt.voice=zh;utt.lang=zh.lang;utt.rate=0.88;utt.pitch=1;utt.volume=1;
     let done=false;
     function finish(){if(done)return;done=true;if(onEnd)onEnd();}
     utt.onend=finish;utt.onerror=finish;
-    setTimeout(finish,20000);
+    setTimeout(finish,25000);
     window.speechSynthesis.speak(utt);
   }
-  function pickVoice(){
-    const vs=window.speechSynthesis.getVoices();if(!vs.length)return null;
-    for(const lang of ['zh-TW','cmn-TW','zh-HK','zh-CN']){
-      const v=vs.find(v=>v.lang===lang&&v.localService)||vs.find(v=>v.lang===lang);
-      if(v)return v;
-    }
-    return vs.find(v=>v.lang.startsWith('zh'))||null;
+  const vs=window.speechSynthesis.getVoices();
+  if(vs.length){attempt(vs);}
+  else{
+    let waited=false;
+    window.speechSynthesis.onvoiceschanged=()=>{
+      if(waited)return;waited=true;
+      window.speechSynthesis.onvoiceschanged=null;
+      attempt(window.speechSynthesis.getVoices());
+    };
+    setTimeout(()=>{if(!waited){waited=true;window.speechSynthesis.onvoiceschanged=null;if(onEnd)onEnd();}},2000);
   }
-  const voices=window.speechSynthesis.getVoices();
-  if(voices.length){doSpeak(pickVoice());}
-  else{window.speechSynthesis.onvoiceschanged=()=>{window.speechSynthesis.onvoiceschanged=null;doSpeak(pickVoice());};}
 }
+
 function _ttsChunk(text,maxLen){
   if(text.length<=maxLen)return[text];
-  const chunks=[];const re=/[。！？，、；：]/g;
+  const out=[];const re=/[。！？，、；：\n]/g;
   let last=0,m;
   while((m=re.exec(text))!==null){
     const end=m.index+1;
-    if(end-last>=maxLen){chunks.push(text.slice(last,end));last=end;}
+    if(end-last>=maxLen){out.push(text.slice(last,end));last=end;}
   }
-  if(last<text.length)chunks.push(text.slice(last));
-  return chunks.flatMap(c=>{
+  if(last<text.length)out.push(text.slice(last));
+  return out.flatMap(c=>{
     if(c.length<=maxLen)return[c];
-    const parts=[];for(let i=0;i<c.length;i+=maxLen)parts.push(c.slice(i,i+maxLen));
-    return parts;
+    const p=[];for(let i=0;i<c.length;i+=maxLen)p.push(c.slice(i,i+maxLen));
+    return p;
   });
 }
-function _bswSpeakFallback(text,onEnd){_ttsSpeechSynthesis(text,onEnd);}
+function _bswSpeakFallback(text,onEnd){bswSpeak(text,onEnd);}
 
 function playWarningBeeps(onDone){
   try{
