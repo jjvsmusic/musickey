@@ -1021,18 +1021,22 @@ function firePendingTTS(){
   setTimeout(()=>bswSpeak(txt),400);
 }
 function bswSpeak(text, onEnd){
-  // 優先用 Google Translate TTS（音質自然、跨平台一致），失敗才 fallback Web Speech API
-  try{
-    const url='https://translate.googleapis.com/translate_tts?ie=UTF-8&tl=zh-TW&client=gtx&q='+encodeURIComponent(text);
-    const audio=new Audio(url);
-    audio.volume=1;
-    let done=false;
-    function finish(){if(done)return;done=true;if(onEnd)onEnd();}
-    audio.onended=finish;
-    audio.onerror=()=>_bswSpeakFallback(text,onEnd);
-    if(onEnd)setTimeout(finish,20000);
-    audio.play().catch(()=>_bswSpeakFallback(text,onEnd));
-  }catch(e){_bswSpeakFallback(text,onEnd);}
+  // 用 fetch 抓 Google Translate TTS blob 再播放，避免 CORS 問題
+  const url='https://translate.googleapis.com/translate_tts?ie=UTF-8&tl=zh-TW&client=gtx&q='+encodeURIComponent(text);
+  let done=false;
+  function finish(){if(done)return;done=true;if(onEnd)onEnd();}
+  fetch(url,{headers:{'User-Agent':'Mozilla/5.0'}})
+    .then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.blob();})
+    .then(blob=>{
+      const burl=URL.createObjectURL(blob);
+      const audio=new Audio(burl);
+      audio.volume=1;
+      audio.onended=()=>{URL.revokeObjectURL(burl);finish();};
+      audio.onerror=()=>{URL.revokeObjectURL(burl);_bswSpeakFallback(text,onEnd);};
+      if(onEnd)setTimeout(finish,20000);
+      audio.play().catch(()=>_bswSpeakFallback(text,onEnd));
+    })
+    .catch(()=>_bswSpeakFallback(text,onEnd));
 }
 function _bswSpeakFallback(text,onEnd){
   if(!window.speechSynthesis)return;
