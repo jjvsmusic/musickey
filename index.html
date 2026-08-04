@@ -1025,27 +1025,32 @@ function bswSpeak(text, onEnd){
   window.speechSynthesis.cancel();
   function doSpeak(voice){
     const utt=new SpeechSynthesisUtterance(text);
-    utt.lang='zh-TW';utt.rate=1.15;utt.pitch=1;utt.volume=1;
+    utt.lang=voice?voice.lang:'zh-TW';
+    utt.rate=1.0;utt.pitch=1;utt.volume=1;
     if(voice)utt.voice=voice;
-    if(onEnd)utt.onend=onEnd;
-    // 若沒有中文語音但有 onEnd，1分鐘後強制觸發避免卡住
-    if(onEnd){const t=setTimeout(onEnd,60000);utt.onend=()=>{clearTimeout(t);onEnd();};}
+    let done=false;
+    function finish(){if(done)return;done=true;if(onEnd)onEnd();}
+    utt.onend=finish;
+    utt.onerror=finish;
+    if(onEnd)setTimeout(finish,15000); // 最多等15秒防卡住
     window.speechSynthesis.speak(utt);
   }
   function pickVoice(){
-    const voices=window.speechSynthesis.getVoices();
-    if(!voices.length)return null;
-    // 依優先序找中文語音
-    return voices.find(v=>v.lang==='zh-TW')
-      ||voices.find(v=>v.lang==='zh-TW'&&v.localService)
-      ||voices.find(v=>v.lang.startsWith('zh'))
-      ||voices.find(v=>/chinese|mandarin|台灣|普通話|國語/i.test(v.name))
-      ||null;
+    const vs=window.speechSynthesis.getVoices();
+    if(!vs.length)return null;
+    const isWin=navigator.userAgent.includes('Windows');
+    // Windows 優先選 zh-CN（Huihui 等品質較好），Mac/其他優先 zh-TW
+    const order=isWin?['zh-CN','zh-TW']:['zh-TW','zh-CN'];
+    for(const lang of order){
+      const v=vs.find(v=>v.lang===lang&&v.localService)
+             ||vs.find(v=>v.lang===lang);
+      if(v)return v;
+    }
+    return vs.find(v=>v.lang.startsWith('zh'))||null;
   }
-  const v=pickVoice();
-  if(v||window.speechSynthesis.getVoices().length){doSpeak(v);}
+  const voices=window.speechSynthesis.getVoices();
+  if(voices.length){doSpeak(pickVoice());}
   else{
-    // 語音清單尚未載入，等 onvoiceschanged
     window.speechSynthesis.onvoiceschanged=()=>{
       window.speechSynthesis.onvoiceschanged=null;
       doSpeak(pickVoice());
@@ -1136,10 +1141,9 @@ function showBlockedSlotWarning(r,slots,onProceed){
   document.body.appendChild(el);
   window._bswProceed=onProceed;
 
-  // 播警報聲 → 朗讀警告詞 → 朗讀完才解鎖操作
-  playWarningBeeps(()=>{
-    document.getElementById('bsw-icon').textContent='🔊';
-    bswSpeak(speakText, ()=>{
+  // 直接朗讀警告詞，不播警報聲
+  document.getElementById('bsw-icon').textContent='🔊';
+  bswSpeak(speakText, ()=>{
       const notice=document.getElementById('bsw-speaking-notice');
       const consent=document.getElementById('bsw-consent-wrap');
       const cancelBtn=document.getElementById('bsw-cancel-btn');
@@ -1153,7 +1157,6 @@ function showBlockedSlotWarning(r,slots,onProceed){
       document.getElementById('bsw-icon').textContent='🚫';
       // 3秒後淡出提示
       setTimeout(()=>{if(notice)notice.style.display='none';},3000);
-    });
   });
 }
 function closeBSW(){
