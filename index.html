@@ -1024,7 +1024,7 @@ function bswSpeak(text, onEnd){
   if(!window.speechSynthesis)return;
   window.speechSynthesis.cancel();
   const utt=new SpeechSynthesisUtterance(text);
-  utt.lang='zh-TW';utt.rate=0.88;utt.pitch=1;utt.volume=1;
+  utt.lang='zh-TW';utt.rate=1.15;utt.pitch=1;utt.volume=1;
   if(onEnd)utt.onend=onEnd;
   window.speechSynthesis.speak(utt);
 }
@@ -1072,17 +1072,11 @@ function playWarningBeeps(onDone){
       ng.gain.linearRampToValueAtTime(0,ctx.currentTime+t+dur);
       ns.start(ctx.currentTime+t);ns.stop(ctx.currentTime+t+dur+.05);
     }
-    // 模擬消防/防盜警報：高低音交替掃頻，共約2.5秒
-    // 第1組：高→低
-    tone(960,720,0,.38);
-    tone(960,720,.45,.38);
-    // 第2組：低→高（反向）
-    tone(720,960,.9,.38);
-    tone(720,960,1.35,.38);
-    // 第3組：快速連響收尾
-    tone(880,660,1.8,.22);
-    tone(880,660,2.08,.22);
-    setTimeout(onDone,3000);
+    // 三聲警報掃頻
+    tone(960,720,0,.32);
+    tone(960,720,.4,.32);
+    tone(960,720,.8,.32);
+    setTimeout(onDone,1600);
   }catch(e){if(onDone)onDone();}
 }
 
@@ -1111,7 +1105,7 @@ function showBlockedSlotWarning(r,slots,onProceed){
         <div style="font-size:11px;color:var(--mut);margin-top:.4rem">此紀錄將儲存以供事後查閱</div>
       </div>
       <div style="display:flex;gap:8px;justify-content:center">
-        <button class="btn btn-o" id="bsw-cancel-btn" style="min-width:90px" onclick="closeBSW()">❌ 取消借用</button>
+        <button class="btn btn-o" id="bsw-cancel-btn" style="min-width:90px" onclick="window._bswTeacher=null;closeBSW()">❌ 取消借用</button>
         <button class="btn btn-d" id="bsw-confirm-btn" style="min-width:130px;opacity:.3;pointer-events:none" onclick="confirmBSW()" disabled>⚠ 仍要借用</button>
       </div>
     </div>`;
@@ -1143,7 +1137,7 @@ function closeBSW(){
   if(el)el.remove();
   try{window.speechSynthesis&&window.speechSynthesis.cancel();}catch(e){}
   window._bswProceed=null;
-  window._bswTeacher=null;
+  // 注意：_bswTeacher 不在此清除，由 confBorrow 讀取後自行清除
 }
 function confirmBSW(){
   const t=(document.getElementById('bsw-teacher')?.value||'').trim();
