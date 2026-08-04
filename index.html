@@ -1030,22 +1030,25 @@ const _TTS_PROXY = 'https://us-central1-musickeyjjvs.cloudfunctions.net/ttsProxy
 
 function bswSpeak(text, onEnd){
   const chunks = _ttsChunk(text, 150);
-  let idx = 0, fallbackTriggered = false;
+  let idx = 0, fallbackTriggered = false, stopped = false;
+  window._bswStop = () => { stopped = true; };
 
   function next(){
-    if(fallbackTriggered) return;
+    if(stopped || fallbackTriggered) return;
     if(idx >= chunks.length){ if(onEnd) onEnd(); return; }
     const q = encodeURIComponent(chunks[idx++]);
     const url = _TTS_PROXY + '?q=' + q;
     const a = document.createElement('audio');
-    a.playbackRate = 1.4;  // 語速：1.0=正常，1.4=快40%，可調整
+    a.playbackRate = 1.6;  // 語速：1.0=正常，1.4=快40%，可調整
+    window._bswCurrentAudio = a;
     let timer = setTimeout(() => { a.src=''; triggerFallback(); }, 8000);
     a.oncanplaythrough = () => {
+      if(stopped){ clearTimeout(timer); a.src=''; return; }
       clearTimeout(timer);
       a.play().catch(() => { clearTimeout(timer); triggerFallback(); });
     };
-    a.onended = () => next();
-    a.onerror = () => { clearTimeout(timer); triggerFallback(); };
+    a.onended = () => { if(!stopped) next(); };
+    a.onerror = () => { clearTimeout(timer); if(!stopped) triggerFallback(); };
     a.src = url;
     a.load();
   }
@@ -1164,7 +1167,7 @@ function showBlockedSlotWarning(r,slots,onProceed){
         <div style="font-size:11px;color:var(--mut);margin-top:.4rem">此紀錄將儲存以供事後查閱</div>
       </div>
       <div style="display:flex;gap:8px;justify-content:center">
-        <button class="btn btn-o" id="bsw-cancel-btn" style="min-width:90px" onclick="window._bswTeacher=null;closeBSW()">❌ 取消借用</button>
+        <button class="btn btn-o" id="bsw-cancel-btn" style="min-width:90px" onclick="window._bswTeacher=null;window._pendingTTS=null;closeBSW()">❌ 取消借用</button>
         <button class="btn btn-d" id="bsw-confirm-btn" style="min-width:130px;opacity:.3;pointer-events:none" onclick="confirmBSW()" disabled>⚠ 仍要借用</button>
       </div>
     </div>`;
@@ -1194,6 +1197,8 @@ function closeBSW(){
   const el=document.getElementById('bsw-overlay');
   if(el)el.remove();
   try{window.speechSynthesis&&window.speechSynthesis.cancel();}catch(e){}
+  if(typeof window._bswStop==='function'){window._bswStop();}
+  try{if(window._bswCurrentAudio){window._bswCurrentAudio.pause();window._bswCurrentAudio.src='';window._bswCurrentAudio=null;}}catch(e){}
   window._bswProceed=null;
   // 注意：_bswTeacher 不在此清除，由 confBorrow 讀取後自行清除
 }
