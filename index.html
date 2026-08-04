@@ -1024,17 +1024,56 @@ function bswSpeak(text, onEnd){
 function playWarningBeeps(onDone){
   try{
     const ctx=new(window.AudioContext||window.webkitAudioContext)();
-    function beep(freq,t,dur,type='square'){
-      const o=ctx.createOscillator();const g=ctx.createGain();
+    function tone(freq1,freq2,t,dur){
+      // 主音
+      const o=ctx.createOscillator();
+      const g=ctx.createGain();
       o.connect(g);g.connect(ctx.destination);
-      o.type=type;o.frequency.value=freq;
+      o.type='sawtooth';
+      o.frequency.setValueAtTime(freq1,ctx.currentTime+t);
+      o.frequency.linearRampToValueAtTime(freq2,ctx.currentTime+t+dur*.5);
+      o.frequency.linearRampToValueAtTime(freq1,ctx.currentTime+t+dur);
       g.gain.setValueAtTime(0,ctx.currentTime+t);
-      g.gain.linearRampToValueAtTime(.45,ctx.currentTime+t+.02);
-      g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+t+dur);
+      g.gain.linearRampToValueAtTime(.35,ctx.currentTime+t+.03);
+      g.gain.setValueAtTime(.35,ctx.currentTime+t+dur-.04);
+      g.gain.linearRampToValueAtTime(0,ctx.currentTime+t+dur);
       o.start(ctx.currentTime+t);o.stop(ctx.currentTime+t+dur+.05);
+      // 倍頻增厚
+      const o2=ctx.createOscillator();
+      const g2=ctx.createGain();
+      o2.connect(g2);g2.connect(ctx.destination);
+      o2.type='square';
+      o2.frequency.setValueAtTime(freq1*2,ctx.currentTime+t);
+      o2.frequency.linearRampToValueAtTime(freq2*2,ctx.currentTime+t+dur*.5);
+      o2.frequency.linearRampToValueAtTime(freq1*2,ctx.currentTime+t+dur);
+      g2.gain.setValueAtTime(0,ctx.currentTime+t);
+      g2.gain.linearRampToValueAtTime(.1,ctx.currentTime+t+.03);
+      g2.gain.setValueAtTime(.1,ctx.currentTime+t+dur-.04);
+      g2.gain.linearRampToValueAtTime(0,ctx.currentTime+t+dur);
+      o2.start(ctx.currentTime+t);o2.stop(ctx.currentTime+t+dur+.05);
+      // 雜訊底噪（模擬警報機電子聲）
+      const buf=ctx.createBuffer(1,ctx.sampleRate*.05,ctx.sampleRate);
+      const d=buf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*.4;
+      const ns=ctx.createBufferSource();ns.buffer=buf;ns.loop=true;
+      const ng=ctx.createGain();const nf=ctx.createBiquadFilter();
+      ns.connect(nf);nf.connect(ng);ng.connect(ctx.destination);
+      nf.type='bandpass';nf.frequency.value=1200;nf.Q.value=1.5;
+      ng.gain.setValueAtTime(0,ctx.currentTime+t);
+      ng.gain.linearRampToValueAtTime(.06,ctx.currentTime+t+.02);
+      ng.gain.setValueAtTime(.06,ctx.currentTime+t+dur-.03);
+      ng.gain.linearRampToValueAtTime(0,ctx.currentTime+t+dur);
+      ns.start(ctx.currentTime+t);ns.stop(ctx.currentTime+t+dur+.05);
     }
-    // 三聲急促警報（共約1.5秒，加緩衝共3秒）
-    beep(880,0,.18);beep(880,.24,.18);beep(880,.48,.18);
+    // 模擬消防/防盜警報：高低音交替掃頻，共約2.5秒
+    // 第1組：高→低
+    tone(960,720,0,.38);
+    tone(960,720,.45,.38);
+    // 第2組：低→高（反向）
+    tone(720,960,.9,.38);
+    tone(720,960,1.35,.38);
+    // 第3組：快速連響收尾
+    tone(880,660,1.8,.22);
+    tone(880,660,2.08,.22);
     setTimeout(onDone,3000);
   }catch(e){if(onDone)onDone();}
 }
@@ -1064,7 +1103,7 @@ function showBlockedSlotWarning(r,slots,onProceed){
         <div style="font-size:11px;color:var(--mut);margin-top:.4rem">此紀錄將儲存以供事後查閱</div>
       </div>
       <div style="display:flex;gap:8px;justify-content:center">
-        <button class="btn btn-o" id="bsw-cancel-btn" style="min-width:90px;opacity:.3;pointer-events:none" onclick="closeBSW()" disabled>❌ 取消借用</button>
+        <button class="btn btn-o" id="bsw-cancel-btn" style="min-width:90px" onclick="closeBSW()">❌ 取消借用</button>
         <button class="btn btn-d" id="bsw-confirm-btn" style="min-width:130px;opacity:.3;pointer-events:none" onclick="confirmBSW()" disabled>⚠ 仍要借用</button>
       </div>
     </div>`;
@@ -1082,7 +1121,7 @@ function showBlockedSlotWarning(r,slots,onProceed){
       const inp=document.getElementById('bsw-teacher');
       if(notice){notice.innerHTML='<span style="color:var(--G);font-size:15px">✅</span><span style="color:var(--G)">警告播放完畢，現在可以操作</span>';}
       if(consent){consent.style.opacity='';consent.style.pointerEvents='';}
-      if(cancelBtn){cancelBtn.disabled=false;cancelBtn.style.opacity='';cancelBtn.style.pointerEvents='';}
+      // cancelBtn 一開始即可用，無需解鎖
       if(confirmBtn){confirmBtn.disabled=false;confirmBtn.style.opacity='';confirmBtn.style.pointerEvents='';}
       if(inp){inp.disabled=false;inp.focus();}
       document.getElementById('bsw-icon').textContent='🚫';
@@ -1101,17 +1140,17 @@ function closeBSW(){
 function confirmBSW(){
   const t=(document.getElementById('bsw-teacher')?.value||'').trim();
   if(!t){
-    document.getElementById('bsw-teacher').style.borderColor='var(--R)';
-    document.getElementById('bsw-teacher').focus();
-    // shake
     const inp=document.getElementById('bsw-teacher');
+    inp.style.borderColor='var(--R)';
     inp.style.animation='bsw-shake .4s ease';
     setTimeout(()=>inp.style.animation='',500);
+    inp.focus();
     return;
   }
   window._bswTeacher=t;
+  const proceed=window._bswProceed; // 先存起來，closeBSW 會把它清掉
   closeBSW();
-  if(window._bswProceed)window._bswProceed();
+  if(proceed)proceed();
 }
 function openBM(r){
   var Q='&quot;';
