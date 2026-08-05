@@ -1039,7 +1039,7 @@ function bswSpeak(text, onEnd){
     const q = encodeURIComponent(chunks[idx++]);
     const url = _TTS_PROXY + '?q=' + q;
     const a = document.createElement('audio');
-    a.playbackRate = 2.0;  // 語速：1.0=正常，1.4=快40%，可調整
+    a.playbackRate = 4.0;  // 語速：1.0=正常，1.4=快40%，可調整
     window._bswCurrentAudio = a;
     let timer = setTimeout(() => { a.src=''; triggerFallback(); }, 8000);
     a.oncanplaythrough = () => {
