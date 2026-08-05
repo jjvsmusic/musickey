@@ -1039,13 +1039,15 @@ function bswSpeak(text, onEnd){
     const q = encodeURIComponent(chunks[idx++]);
     const url = _TTS_PROXY + '?q=' + q;
     const a = document.createElement('audio');
-    a.playbackRate = 4.0;  // 語速：1.0=正常，1.4=快40%，可調整
+    const _RATE = 4.0;  // 語速：1.0=正常，2.0=快一倍，可調整
     window._bswCurrentAudio = a;
     let timer = setTimeout(() => { a.src=''; triggerFallback(); }, 8000);
     a.oncanplaythrough = () => {
       if(stopped){ clearTimeout(timer); a.src=''; return; }
       clearTimeout(timer);
-      a.play().catch(() => { clearTimeout(timer); triggerFallback(); });
+      a.playbackRate = _RATE;  // 在可播放後設定，確保生效
+      a.play().then(() => { a.playbackRate = _RATE; })  // play() resolve 後再設一次（iOS/Chrome 相容）
+         .catch(() => { clearTimeout(timer); triggerFallback(); });
     };
     a.onended = () => { if(!stopped) next(); };
     a.onerror = () => { clearTimeout(timer); if(!stopped) triggerFallback(); };
