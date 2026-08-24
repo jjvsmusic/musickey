@@ -1006,9 +1006,19 @@ function getBlockedSlotsForRoom(roomId){
   const hh=String(now.getHours()).padStart(2,'0');
   const mm=String(now.getMinutes()).padStart(2,'0');
   const hhmm=hh+':'+mm;
+  // 今天的 YYYY-MM-DD（本地時間）
+  const todayStr=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
+  // 今天是星期幾（0=日,1=一,...,6=六）
+  const todayWd=now.getDay();
   return DB.blockedSlots.filter(s=>{
     if(!s.rooms||!s.rooms.includes(roomId))return false;
     if(!s.start||!s.end)return false;
+    // 日期區間檢查（有設才套用）
+    if(s.dateFrom&&todayStr<s.dateFrom)return false;
+    if(s.dateTo&&todayStr>s.dateTo)return false;
+    // 星期幾檢查（有設才套用；空陣列 = 不限）
+    if(s.weekdays&&s.weekdays.length>0&&!s.weekdays.includes(todayWd))return false;
+    // 時間區間
     if(s.start<=s.end){return hhmm>=s.start&&hhmm<s.end;}
     else{return hhmm>=s.start||hhmm<s.end;}
   });
@@ -2732,13 +2742,21 @@ function renderBSlots(){
     el.innerHTML='<div style="text-align:center;padding:2rem;color:var(--mut);font-size:13px">尚未設定任何限制時段<br><small>點擊右上角「+ 新增限制時段」開始設定</small></div>';
     return;
   }
+  const WD_NAMES=['日','一','二','三','四','五','六'];
   el.innerHTML=DB.blockedSlots.map((s,i)=>{
     const roomNames=s.rooms.map(rid=>{const r=DB.rooms.find(x=>x.id===rid);return r?r.name:'?';}).join('、');
+    const wdLabel=(s.weekdays&&s.weekdays.length>0)
+      ?'週'+s.weekdays.map(d=>WD_NAMES[d]).join('、')
+      :'每天';
+    const dateLabel=(s.dateFrom||s.dateTo)
+      ?((s.dateFrom||'…')+' ～ '+(s.dateTo||'…'))
+      :'不限日期';
     return`<div class="bs-slot-row">
       <div style="min-width:90px;font-size:14px;font-weight:600;font-family:'IBM Plex Mono',monospace;color:var(--R)">${escHtml(s.start)} – ${escHtml(s.end)}</div>
       <div style="flex:1;min-width:0">
         <div style="font-size:13px;font-weight:500">${escHtml(s.label||'未命名限制')}</div>
         <div class="bs-slot-rooms">🏠 ${escHtml(roomNames||'（尚未指定琴房）')}</div>
+        <div style="font-size:11px;color:var(--mut);margin-top:2px">📅 ${escHtml(dateLabel)}　📆 ${escHtml(wdLabel)}</div>
       </div>
       <button class="btn btn-o btn-xs" onclick="openEditBSlot(${i})">✏ 編輯</button>
       <button class="btn btn-d btn-xs" onclick="delBSlot(${i})">刪除</button>
@@ -2752,11 +2770,16 @@ function openEditBSlot(idx){_openBSlotModal(idx);}
 function _openBSlotModal(idx){
   if(!Array.isArray(DB.blockedSlots))DB.blockedSlots=[];
   const isEdit=idx!=null;
-  const s=isEdit?DB.blockedSlots[idx]:{label:'',start:'12:00',end:'14:00',rooms:[]};
+  const s=isEdit?DB.blockedSlots[idx]:{label:'',start:'12:00',end:'14:00',rooms:[],weekdays:[],dateFrom:'',dateTo:''};
   const roomChips=DB.rooms.map(r=>{
     const sel=s.rooms.includes(r.id);
     return`<span class="bs-room-chip${sel?' sel':''}" data-rid="${escHtml(r.id)}" onclick="bsToggleRoom(this)">${escHtml(r.floor)} ${escHtml(r.name)}</span>`;
   }).join(' ');
+  const WD_NAMES=['日','一','二','三','四','五','六'];
+  const wdChips=WD_NAMES.map((name,d)=>{
+    const sel=s.weekdays&&s.weekdays.includes(d);
+    return`<span class="bs-room-chip${sel?' sel':''}" data-wd="${d}" onclick="bsToggleWd(this)" style="min-width:36px;text-align:center;justify-content:center">週${name}</span>`;
+  }).join('');
   showM(`<div class="mt">${isEdit?'✏ 編輯':'+ 新增'}限制時段</div>
     <div class="fg"><label class="fl">說明標籤</label>
       <input type="text" id="bs-label" placeholder="例：午休時間、下課時段..." value="${escHtml(s.label||'')}"></div>
@@ -2766,6 +2789,25 @@ function _openBSlotModal(idx){
       <div class="fg" style="flex:1"><label class="fl">結束時間</label>
         <input type="time" id="bs-end" value="${escHtml(s.end||'13:00')}"></div>
     </div>
+    <div class="fg">
+      <label class="fl">套用星期幾（不選 = 每天）</label>
+      <div style="display:flex;gap:5px;flex-wrap:wrap;padding:.4rem 0" id="bs-wd-chips">${wdChips}</div>
+      <div style="display:flex;gap:6px;margin-top:.4rem">
+        <button class="btn btn-o btn-xs" onclick="bsSelectAllWd()">全選（每天）</button>
+        <button class="btn btn-o btn-xs" onclick="bsClearWd()">清除</button>
+      </div>
+    </div>
+    <div class="dvd"></div>
+    <div class="fg">
+      <label class="fl">日期區間（選填，留空 = 不限日期）</label>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <input type="date" id="bs-date-from" value="${escHtml(s.dateFrom||'')}" style="flex:1;min-width:130px">
+        <span style="color:var(--mut);font-size:13px">～</span>
+        <input type="date" id="bs-date-to" value="${escHtml(s.dateTo||'')}" style="flex:1;min-width:130px">
+        <button class="btn btn-o btn-xs" onclick="document.getElementById('bs-date-from').value='';document.getElementById('bs-date-to').value=''">清除</button>
+      </div>
+    </div>
+    <div class="dvd"></div>
     <div class="fg">
       <label class="fl">套用琴房（可複選）</label>
       <div style="display:flex;gap:6px;flex-wrap:wrap;padding:.5rem 0" id="bs-room-chips">${roomChips}</div>
@@ -2783,6 +2825,9 @@ function _openBSlotModal(idx){
 function bsToggleRoom(chip){chip.classList.toggle('sel');}
 function bsSelectAllRooms(){document.querySelectorAll('#bs-room-chips .bs-room-chip').forEach(c=>c.classList.add('sel'));}
 function bsClearRooms(){document.querySelectorAll('#bs-room-chips .bs-room-chip').forEach(c=>c.classList.remove('sel'));}
+function bsToggleWd(chip){chip.classList.toggle('sel');}
+function bsSelectAllWd(){document.querySelectorAll('#bs-wd-chips .bs-room-chip').forEach(c=>c.classList.add('sel'));}
+function bsClearWd(){document.querySelectorAll('#bs-wd-chips .bs-room-chip').forEach(c=>c.classList.remove('sel'));}
 
 function saveBSlot(idx){
   const label=(document.getElementById('bs-label')?.value||'').trim();
@@ -2792,7 +2837,13 @@ function saveBSlot(idx){
   if(start===end){showT('開始和結束時間不能相同','tw2');return;}
   const rooms=[...document.querySelectorAll('#bs-room-chips .bs-room-chip.sel')].map(c=>c.dataset.rid);
   if(!rooms.length){showT('請至少選擇一間琴房','tw2');return;}
-  const slot={label,start,end,rooms};
+  // 星期幾（數字陣列；空陣列 = 每天）
+  const weekdays=[...document.querySelectorAll('#bs-wd-chips .bs-room-chip.sel')].map(c=>parseInt(c.dataset.wd));
+  // 日期區間
+  const dateFrom=document.getElementById('bs-date-from')?.value||'';
+  const dateTo=document.getElementById('bs-date-to')?.value||'';
+  if(dateFrom&&dateTo&&dateFrom>dateTo){showT('開始日期不能晚於結束日期','tw2');return;}
+  const slot={label,start,end,rooms,weekdays,dateFrom,dateTo};
   if(!Array.isArray(DB.blockedSlots))DB.blockedSlots=[];
   if(idx!=null&&idx!=='null'){DB.blockedSlots[idx]=slot;}
   else{DB.blockedSlots.push(slot);}
