@@ -1038,21 +1038,25 @@ function firePendingTTS(){
 // Firebase Functions TTS Proxy URL
 const _TTS_PROXY = 'https://us-central1-musickeyjjvs.cloudfunctions.net/ttsProxy';
 
+// 全域共用一個 AudioContext（避免每次建立新的被 suspend）
+let _bswACtx = null;
+function _getBswACtx(){
+  if(!_bswACtx || _bswACtx.state==='closed'){
+    _bswACtx = new(window.AudioContext||window.webkitAudioContext)();
+  }
+  return _bswACtx;
+}
+
 function bswSpeak(text, onEnd){
-  // 每次呼叫前先強制清除上一次的殘留狀態
+  // 清除上一次殘留
   try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(e){}
-  try{ if(window._bswCurrentAudio){
-    window._bswCurrentAudio.oncanplaythrough=null;
-    window._bswCurrentAudio.onended=null;
-    window._bswCurrentAudio.onerror=null;
-    window._bswCurrentAudio.pause();
-    window._bswCurrentAudio.src='';
-    window._bswCurrentAudio=null;
-  }}catch(e){}
+  if(window._bswStopFn){ try{ window._bswStopFn(); }catch(e){} }
+  window._bswCurrentAudio = null;
 
   const chunks = _ttsChunk(text, 150);
-  let idx = 0, fallbackTriggered = false, stopped = false;
-  let _safeTimer = null; // 全域安全計時器，確保 onEnd 一定被呼叫
+  let idx = 0, stopped = false, fallbackTriggered = false;
+  let _safeTimer = null;
+  let _currentSource = null; // AudioContext BufferSource
 
   function safeOnEnd(){
     if(stopped) return;
@@ -1060,43 +1064,50 @@ function bswSpeak(text, onEnd){
     if(onEnd) onEnd();
   }
 
-  // 10 秒安全網：無論如何 onEnd 一定會被呼叫（除非 stopped）
+  // 10 秒安全網
   _safeTimer = setTimeout(()=>{ if(!stopped && onEnd) onEnd(); }, 10000);
 
-  window._bswStop = () => {
+  window._bswStopFn = () => {
     stopped = true;
     clearTimeout(_safeTimer);
+    try{ if(_currentSource){ _currentSource.onended=null; _currentSource.stop(); _currentSource=null; } }catch(e){}
     try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(e){}
-    try{ if(window._bswCurrentAudio){
-      window._bswCurrentAudio.oncanplaythrough=null;
-      window._bswCurrentAudio.onended=null;
-      window._bswCurrentAudio.onerror=null;
-      window._bswCurrentAudio.pause();
-      window._bswCurrentAudio.src='';
-      window._bswCurrentAudio=null;
-    }}catch(e){}
   };
+  // 相容舊的 _bswStop 呼叫
+  window._bswStop = window._bswStopFn;
 
   function next(){
     if(stopped || fallbackTriggered) return;
     if(idx >= chunks.length){ safeOnEnd(); return; }
     const q = encodeURIComponent(chunks[idx++]);
     const url = _TTS_PROXY + '?q=' + q;
-    const a = document.createElement('audio');
-    const _RATE = 2.0;
-    window._bswCurrentAudio = a;
-    let chunkTimer = setTimeout(() => { a.src=''; if(!stopped) triggerFallback(); }, 8000);
-    a.oncanplaythrough = () => {
-      if(stopped){ clearTimeout(chunkTimer); a.src=''; return; }
-      clearTimeout(chunkTimer);
-      a.playbackRate = _RATE;
-      a.play().then(() => { a.playbackRate = _RATE; })
-         .catch(() => { if(!stopped) triggerFallback(); });
+    let chunkTimer = setTimeout(()=>{ if(!stopped) triggerFallback(); }, 9000);
+
+    const ctx = _getBswACtx();
+    // 確保 AudioContext 是 running 狀態
+    const doFetch = () => {
+      fetch(url)
+        .then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.arrayBuffer(); })
+        .then(buf=>{ if(stopped){ clearTimeout(chunkTimer); return; } return ctx.decodeAudioData(buf); })
+        .then(decoded=>{
+          if(!decoded || stopped){ clearTimeout(chunkTimer); return; }
+          clearTimeout(chunkTimer);
+          const src = ctx.createBufferSource();
+          src.buffer = decoded;
+          src.playbackRate.value = 2.0;
+          src.connect(ctx.destination);
+          _currentSource = src;
+          src.onended = ()=>{ if(!stopped){ _currentSource=null; next(); } };
+          src.start(0);
+        })
+        .catch(()=>{ clearTimeout(chunkTimer); if(!stopped) triggerFallback(); });
     };
-    a.onended = () => { if(!stopped) next(); };
-    a.onerror = () => { clearTimeout(chunkTimer); if(!stopped) triggerFallback(); };
-    a.src = url;
-    a.load();
+
+    if(ctx.state === 'suspended'){
+      ctx.resume().then(doFetch).catch(()=>{ if(!stopped) triggerFallback(); });
+    } else {
+      doFetch();
+    }
   }
 
   function triggerFallback(){
@@ -1104,7 +1115,6 @@ function bswSpeak(text, onEnd){
     fallbackTriggered = true;
     if(!window.speechSynthesis){ safeOnEnd(); return; }
     window.speechSynthesis.cancel();
-    // 短暫延遲讓 cancel 生效再 speak（修復 Chrome 偶數次不觸發 onend 的 bug）
     setTimeout(()=>{
       if(stopped) return;
       const utt = new SpeechSynthesisUtterance(text);
@@ -1118,7 +1128,13 @@ function bswSpeak(text, onEnd){
     }, 150);
   }
 
-  next();
+  // 確保 AudioContext running 後開始
+  const ctx = _getBswACtx();
+  if(ctx.state === 'suspended'){
+    ctx.resume().then(()=>next()).catch(()=>next());
+  } else {
+    next();
+  }
 }
 
 function _ttsChunk(text,maxLen){
@@ -1243,13 +1259,13 @@ function showBlockedSlotWarning(r,slots,onProceed){
 function closeBSW(){
   const el=document.getElementById('bsw-overlay');
   if(el)el.remove();
-  // 先 stop 目前的播放實例（令閉包 stopped=true）
-  if(typeof window._bswStop==='function'){window._bswStop();}
-  window._bswStop=null; // 清掉，下次 bswSpeak 會重建
+  // 停止目前播放
+  if(typeof window._bswStopFn==='function'){ try{window._bswStopFn();}catch(e){} }
+  window._bswStopFn=null;
+  window._bswStop=null;
   try{window.speechSynthesis&&window.speechSynthesis.cancel();}catch(e){}
-  try{if(window._bswCurrentAudio){window._bswCurrentAudio.oncanplaythrough=null;window._bswCurrentAudio.onended=null;window._bswCurrentAudio.onerror=null;window._bswCurrentAudio.pause();window._bswCurrentAudio.src='';window._bswCurrentAudio=null;}}catch(e){}
+  window._bswCurrentAudio=null;
   window._bswProceed=null;
-  // 注意：_bswTeacher 不在此清除，由 confBorrow 讀取後自行清除
 }
 function confirmBSW(){
   const t=(document.getElementById('bsw-teacher')?.value||'').trim();
