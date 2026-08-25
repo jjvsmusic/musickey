@@ -1039,56 +1039,83 @@ function firePendingTTS(){
 const _TTS_PROXY = 'https://us-central1-musickeyjjvs.cloudfunctions.net/ttsProxy';
 
 function bswSpeak(text, onEnd){
+  // 每次呼叫前先強制清除上一次的殘留狀態
+  try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(e){}
+  try{ if(window._bswCurrentAudio){
+    window._bswCurrentAudio.oncanplaythrough=null;
+    window._bswCurrentAudio.onended=null;
+    window._bswCurrentAudio.onerror=null;
+    window._bswCurrentAudio.pause();
+    window._bswCurrentAudio.src='';
+    window._bswCurrentAudio=null;
+  }}catch(e){}
+
   const chunks = _ttsChunk(text, 150);
   let idx = 0, fallbackTriggered = false, stopped = false;
-  // 每次新呼叫都重建 stop 函式，確保只停止本次實例
-  window._bswStop = () => { stopped = true; };
+  let _safeTimer = null; // 全域安全計時器，確保 onEnd 一定被呼叫
+
+  function safeOnEnd(){
+    if(stopped) return;
+    clearTimeout(_safeTimer);
+    if(onEnd) onEnd();
+  }
+
+  // 10 秒安全網：無論如何 onEnd 一定會被呼叫（除非 stopped）
+  _safeTimer = setTimeout(()=>{ if(!stopped && onEnd) onEnd(); }, 10000);
+
+  window._bswStop = () => {
+    stopped = true;
+    clearTimeout(_safeTimer);
+    try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(e){}
+    try{ if(window._bswCurrentAudio){
+      window._bswCurrentAudio.oncanplaythrough=null;
+      window._bswCurrentAudio.onended=null;
+      window._bswCurrentAudio.onerror=null;
+      window._bswCurrentAudio.pause();
+      window._bswCurrentAudio.src='';
+      window._bswCurrentAudio=null;
+    }}catch(e){}
+  };
 
   function next(){
     if(stopped || fallbackTriggered) return;
-    if(idx >= chunks.length){ if(!stopped && onEnd) onEnd(); return; }
+    if(idx >= chunks.length){ safeOnEnd(); return; }
     const q = encodeURIComponent(chunks[idx++]);
     const url = _TTS_PROXY + '?q=' + q;
     const a = document.createElement('audio');
-    const _RATE = 2.0;  // 語速：1.0=正常，2.0=快一倍（iOS Safari 上限），可調整
+    const _RATE = 2.0;
     window._bswCurrentAudio = a;
-    let timer = setTimeout(() => { a.src=''; triggerFallback(); }, 8000);
+    let chunkTimer = setTimeout(() => { a.src=''; if(!stopped) triggerFallback(); }, 8000);
     a.oncanplaythrough = () => {
-      if(stopped){ clearTimeout(timer); a.src=''; return; }
-      clearTimeout(timer);
-      a.playbackRate = _RATE;  // 在可播放後設定，確保生效
-      a.play().then(() => { a.playbackRate = _RATE; })  // play() resolve 後再設一次（iOS/Chrome 相容）
-         .catch(() => { clearTimeout(timer); triggerFallback(); });
+      if(stopped){ clearTimeout(chunkTimer); a.src=''; return; }
+      clearTimeout(chunkTimer);
+      a.playbackRate = _RATE;
+      a.play().then(() => { a.playbackRate = _RATE; })
+         .catch(() => { if(!stopped) triggerFallback(); });
     };
     a.onended = () => { if(!stopped) next(); };
-    a.onerror = () => { clearTimeout(timer); if(!stopped) triggerFallback(); };
+    a.onerror = () => { clearTimeout(chunkTimer); if(!stopped) triggerFallback(); };
     a.src = url;
     a.load();
   }
 
   function triggerFallback(){
-    if(fallbackTriggered) return;
+    if(fallbackTriggered || stopped) return;
     fallbackTriggered = true;
-    if(!window.speechSynthesis){ if(!stopped&&onEnd) onEnd(); return; }
+    if(!window.speechSynthesis){ safeOnEnd(); return; }
     window.speechSynthesis.cancel();
-    const utt = new SpeechSynthesisUtterance(text);
-    utt.lang = 'zh-TW'; utt.rate = 1.2; utt.pitch = 1; utt.volume = 1;
-    const vs = window.speechSynthesis.getVoices();
-    const zh = vs.find(v=>/^zh/i.test(v.lang)) || null;
-    if(zh) utt.voice = zh;
-    let done = false;
-    function finish(){ if(done||stopped) return; done=true; if(onEnd) onEnd(); }
-    utt.onend = finish; utt.onerror = finish;
-    // 保存 timer id，讓 _bswStop 能清掉它
-    const tid = setTimeout(finish, 8000); // 縮短到 8 秒避免卡太久
-    const prevStop = window._bswStop;
-    window._bswStop = () => {
-      stopped = true;
-      clearTimeout(tid);
-      try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(e){}
-      if(prevStop) prevStop();
-    };
-    window.speechSynthesis.speak(utt);
+    // 短暫延遲讓 cancel 生效再 speak（修復 Chrome 偶數次不觸發 onend 的 bug）
+    setTimeout(()=>{
+      if(stopped) return;
+      const utt = new SpeechSynthesisUtterance(text);
+      utt.lang = 'zh-TW'; utt.rate = 1.2; utt.pitch = 1; utt.volume = 1;
+      const vs = window.speechSynthesis.getVoices();
+      const zh = vs.find(v=>/^zh/i.test(v.lang)) || null;
+      if(zh) utt.voice = zh;
+      utt.onend = ()=>{ if(!stopped) safeOnEnd(); };
+      utt.onerror = ()=>{ if(!stopped) safeOnEnd(); };
+      window.speechSynthesis.speak(utt);
+    }, 150);
   }
 
   next();
