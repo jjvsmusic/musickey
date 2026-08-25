@@ -1046,7 +1046,7 @@ function bswSpeak(text, onEnd){
 
   function next(){
     if(stopped || fallbackTriggered) return;
-    if(idx >= chunks.length){ if(onEnd) onEnd(); return; }
+    if(idx >= chunks.length){ if(!stopped && onEnd) onEnd(); return; }
     const q = encodeURIComponent(chunks[idx++]);
     const url = _TTS_PROXY + '?q=' + q;
     const a = document.createElement('audio');
@@ -1069,8 +1069,7 @@ function bswSpeak(text, onEnd){
   function triggerFallback(){
     if(fallbackTriggered) return;
     fallbackTriggered = true;
-    // 最後手段：eSpeak（雖然音質差，但至少有聲音）
-    if(!window.speechSynthesis){ if(onEnd) onEnd(); return; }
+    if(!window.speechSynthesis){ if(!stopped&&onEnd) onEnd(); return; }
     window.speechSynthesis.cancel();
     const utt = new SpeechSynthesisUtterance(text);
     utt.lang = 'zh-TW'; utt.rate = 1.2; utt.pitch = 1; utt.volume = 1;
@@ -1078,9 +1077,17 @@ function bswSpeak(text, onEnd){
     const zh = vs.find(v=>/^zh/i.test(v.lang)) || null;
     if(zh) utt.voice = zh;
     let done = false;
-    function finish(){ if(done) return; done=true; if(onEnd) onEnd(); }
+    function finish(){ if(done||stopped) return; done=true; if(onEnd) onEnd(); }
     utt.onend = finish; utt.onerror = finish;
-    setTimeout(finish, 25000);
+    // 保存 timer id，讓 _bswStop 能清掉它
+    const tid = setTimeout(finish, 8000); // 縮短到 8 秒避免卡太久
+    const prevStop = window._bswStop;
+    window._bswStop = () => {
+      stopped = true;
+      clearTimeout(tid);
+      try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(e){}
+      if(prevStop) prevStop();
+    };
     window.speechSynthesis.speak(utt);
   }
 
