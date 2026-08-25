@@ -1041,6 +1041,7 @@ const _TTS_PROXY = 'https://us-central1-musickeyjjvs.cloudfunctions.net/ttsProxy
 function bswSpeak(text, onEnd){
   const chunks = _ttsChunk(text, 150);
   let idx = 0, fallbackTriggered = false, stopped = false;
+  // 每次新呼叫都重建 stop 函式，確保只停止本次實例
   window._bswStop = () => { stopped = true; };
 
   function next(){
@@ -1156,7 +1157,7 @@ function playWarningBeeps(onDone){
 
 function showBlockedSlotWarning(r,slots,onProceed){
   const slotDesc=slots.map(s=>`${s.label||'限制時段'} (${s.start}–${s.end})`).join('、');
-  const speakText=`注意！${r.name} 琴房，此時段不開放借用。若確認需要借用，請填寫同意教師姓名，並由教師負責。`;
+  const speakText=`此時段不開放，若要使用${r.name}琴房，請經由教師同意。`;
 
   const el=document.createElement('div');
   el.className='bsw-overlay';
@@ -1208,9 +1209,11 @@ function showBlockedSlotWarning(r,slots,onProceed){
 function closeBSW(){
   const el=document.getElementById('bsw-overlay');
   if(el)el.remove();
-  try{window.speechSynthesis&&window.speechSynthesis.cancel();}catch(e){}
+  // 先 stop 目前的播放實例（令閉包 stopped=true）
   if(typeof window._bswStop==='function'){window._bswStop();}
-  try{if(window._bswCurrentAudio){window._bswCurrentAudio.pause();window._bswCurrentAudio.src='';window._bswCurrentAudio=null;}}catch(e){}
+  window._bswStop=null; // 清掉，下次 bswSpeak 會重建
+  try{window.speechSynthesis&&window.speechSynthesis.cancel();}catch(e){}
+  try{if(window._bswCurrentAudio){window._bswCurrentAudio.oncanplaythrough=null;window._bswCurrentAudio.onended=null;window._bswCurrentAudio.onerror=null;window._bswCurrentAudio.pause();window._bswCurrentAudio.src='';window._bswCurrentAudio=null;}}catch(e){}
   window._bswProceed=null;
   // 注意：_bswTeacher 不在此清除，由 confBorrow 讀取後自行清除
 }
