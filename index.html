@@ -1094,7 +1094,7 @@ function bswSpeak(text, onEnd){
           clearTimeout(chunkTimer);
           const src = ctx.createBufferSource();
           src.buffer = decoded;
-          src.playbackRate.value = 1.5;
+          src.playbackRate.value = 1.2;
           src.connect(ctx.destination);
           _currentSource = src;
           src.onended = ()=>{ if(!stopped){ _currentSource=null; next(); } };
