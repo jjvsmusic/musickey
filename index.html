@@ -1080,7 +1080,7 @@ function bswSpeak(text, onEnd){
     if(stopped || fallbackTriggered) return;
     if(idx >= chunks.length){ safeOnEnd(); return; }
     const q = encodeURIComponent(chunks[idx++]);
-    const url = _TTS_PROXY + '?q=' + q;
+    const url = _TTS_PROXY + '?q=' + q + '&slow=true';
     let chunkTimer = setTimeout(()=>{ if(!stopped) triggerFallback(); }, 9000);
 
     const ctx = _getBswACtx();
@@ -1094,7 +1094,7 @@ function bswSpeak(text, onEnd){
           clearTimeout(chunkTimer);
           const src = ctx.createBufferSource();
           src.buffer = decoded;
-          src.playbackRate.value = 2.0;
+          src.playbackRate.value = 0.85;
           src.connect(ctx.destination);
           _currentSource = src;
           src.onended = ()=>{ if(!stopped){ _currentSource=null; next(); } };
@@ -1118,7 +1118,7 @@ function bswSpeak(text, onEnd){
     setTimeout(()=>{
       if(stopped) return;
       const utt = new SpeechSynthesisUtterance(text);
-      utt.lang = 'zh-TW'; utt.rate = 1.2; utt.pitch = 1; utt.volume = 1;
+      utt.lang = 'zh-TW'; utt.rate = 0.85; utt.pitch = 1; utt.volume = 1;
       const vs = window.speechSynthesis.getVoices();
       const zh = vs.find(v=>/^zh/i.test(v.lang)) || null;
       if(zh) utt.voice = zh;
