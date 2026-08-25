@@ -1080,7 +1080,7 @@ function bswSpeak(text, onEnd){
     if(stopped || fallbackTriggered) return;
     if(idx >= chunks.length){ safeOnEnd(); return; }
     const q = encodeURIComponent(chunks[idx++]);
-    const url = _TTS_PROXY + '?q=' + q + '&slow=true';
+    const url = _TTS_PROXY + '?q=' + q;
     let chunkTimer = setTimeout(()=>{ if(!stopped) triggerFallback(); }, 9000);
 
     const ctx = _getBswACtx();
@@ -1094,7 +1094,7 @@ function bswSpeak(text, onEnd){
           clearTimeout(chunkTimer);
           const src = ctx.createBufferSource();
           src.buffer = decoded;
-          src.playbackRate.value = 0.85;
+          src.playbackRate.value = 1.0;
           src.connect(ctx.destination);
           _currentSource = src;
           src.onended = ()=>{ if(!stopped){ _currentSource=null; next(); } };
