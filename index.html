@@ -1596,10 +1596,25 @@ function confBorrow(id){
   }
   const cls2=borrowCls;
   const person={name:personName};
-  r.status='bw';r.borrower={cls:cls2,seatNo:padded,name:personName,time:nowT(),reason:rt};
   const _approvedBy=window._bswTeacher||null;
   window._bswTeacher=null;
-  DB.history.unshift({id:++DB.ids.h,room:r.name,rid:r.id,cls:cls2,seatNo:padded,name:personName,borrowTime:ts(),returnTime:null,photo:cpBorrow||null,reason:rt,approvedBy:_approvedBy});
+
+  // 從琴房資料中讀取 lockIds（後台「琴房管理」設定的塗鴉 Lock ID）
+  const rawLockIds = Array.isArray(r.lockIds) ? r.lockIds.filter(Boolean) : [];
+
+  // pwdEnabled 預設 true；若明確設為 false 則走實體鑰匙
+  const pwdEnabled = r.pwdEnabled !== false;
+
+  // 密碼模式：不寫借還紀錄，只在實體鑰匙模式寫紀錄
+  const isPwdMode = rawLockIds.length > 0 && pwdEnabled;
+
+  r.status='bw';r.borrower={cls:cls2,seatNo:padded,name:personName,time:nowT(),reason:rt};
+
+  if(!isPwdMode){
+    // 實體鑰匙模式才寫 history（需要歸還登記才完成）
+    DB.history.unshift({id:++DB.ids.h,room:r.name,rid:r.id,cls:cls2,seatNo:padded,name:personName,borrowTime:ts(),returnTime:null,photo:cpBorrow||null,reason:rt,approvedBy:_approvedBy});
+  }
+
   // 儲存供後段流程完成後朗讀用
   window._pendingTTS = _approvedBy
     ? `注意！${cls2}${padded?' '+padded+'號 ':' '}${personName}，借用${r.name}琴房，由${_approvedBy}老師同意。`
@@ -1609,13 +1624,8 @@ function confBorrow(id){
   nkReset('bn');
   saveDB();renderStats();renderRooms();
   closeM();
-  // 從琴房資料中讀取 lockIds（後台「琴房管理」設定的塗鴉 Lock ID）
-  const rawLockIds = Array.isArray(r.lockIds) ? r.lockIds.filter(Boolean) : [];
 
-  // pwdEnabled 預設 true；若明確設為 false 則走實體鑰匙
-  const pwdEnabled = r.pwdEnabled !== false;
-
-  if(rawLockIds.length === 0 || !pwdEnabled) {
+  if(!isPwdMode) {
     // 實體鑰匙模式（無 Lock ID 或已關閉派發密碼）
     const reason = !pwdEnabled && rawLockIds.length > 0
       ? '此琴房目前暫停派發密碼，請至鑰匙存放處自取鑰匙'
@@ -1674,14 +1684,12 @@ function _doGetPassword(r, cls, padded, person, lockId) {
         closeM();
         const pwd = result.data && result.data.password ? result.data.password : null;
 
-        // 密碼派發完成 → 立即標記為可借用（關閉視窗即完成，無需按任何鈕）
+        // 密碼派發完成 → 立即標記為可借用（不寫任何借還紀錄）
         function markReturnedByPwd(){
           if(!roomId) return;
           const room = DB.rooms.find(x=>x.id===roomId);
           if(!room) return;
           if(room.status==='bw'){
-            const h = DB.history.find(x=>x.rid===roomId&&!x.returnTime);
-            if(h){h.returnTime=ts();h.note='密碼開門自動歸還';}
             room.status='av'; delete room.borrower;
           }
           saveDB(); renderStats(); renderRooms();
@@ -2027,30 +2035,41 @@ function submitRep(){
 function popPHF(){
   const sel=document.getElementById('ph-room');
   if(!Array.isArray(DB.history))DB.history=[];
-  const rooms=[...new Set(DB.history.map(h=>h.room))].sort();
+  // 同步排除密碼開門自動歸還的紀錄
+  const rooms=[...new Set(DB.history.filter(h=>h.note!=='密碼開門自動歸還').map(h=>h.room))].sort();
   sel.innerHTML='<option value="">所有琴房</option>'+rooms.map(r=>`<option value="${r}">${r}</option>`).join('');
 }
 function renderPubH(){
   const q=document.getElementById('ph-q')?.value?.toLowerCase()||'';
   const rf=v('ph-room');
   if(!Array.isArray(DB.history))DB.history=[];
-  let data=DB.history.filter(h=>h.returnTime);
+  // 排除密碼開門自動歸還的紀錄（不需要顯示）
+  let data=DB.history.filter(h=>h.note!=='密碼開門自動歸還');
   if(rf)data=data.filter(h=>h.room===rf);
   if(q)data=data.filter(h=>h.cls?.toLowerCase().includes(q)||h.name?.includes(q)||h.seatNo?.includes(q));
-  data.sort((a,b)=>b.returnTime.localeCompare(a.returnTime));
+  // 未歸還的排最前面，已歸還的依歸還時間降冪
+  data.sort((a,b)=>{
+    if(!a.returnTime&&b.returnTime)return -1;
+    if(a.returnTime&&!b.returnTime)return 1;
+    const ta=a.returnTime||a.borrowTime, tb=b.returnTime||b.borrowTime;
+    return tb.localeCompare(ta);
+  });
   if(!data.length){document.getElementById('ph-tbl').innerHTML='<div style="padding:2rem;text-align:center;color:var(--mut)">無符合紀錄</div>';return;}
-  const rows=data.slice(0,120).map(h=>{
+  const rows=data.slice(0,150).map(h=>{
     const ret=h.returner?`${h.returner.cls} ${h.returner.seatNo||''}號 ${h.returner.name}`:'—';
     const apv=h.approvedBy?`<span style="font-size:11px;background:var(--Al);color:var(--A);border:1px solid var(--Ab);border-radius:12px;padding:1px 7px">⚠ ${escHtml(h.approvedBy)}</span>`:'';
-    return`<tr>
-    <td style="font-family:monospace;font-weight:500">${h.room}</td>
-    <td>${h.cls}</td>
-    <td style="font-family:monospace;color:var(--AC);text-align:center">${h.seatNo||'—'}</td>
-    <td>${h.name}</td>
-    <td><span style="font-size:12px;color:var(--mut)">${h.reason||'—'}</span></td>
+    const returnCell=h.returnTime
+      ?`<span style="font-size:12px;white-space:nowrap">${fmtDate(h.returnTime)}</span>`
+      :`<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;background:var(--Rl);color:var(--R);border:1px solid var(--Rb)">● 借用中</span>`;
+    return`<tr${!h.returnTime?' style="background:rgba(163,50,50,.03)"':''}>
+    <td style="font-family:monospace;font-weight:500">${escHtml(h.room)}</td>
+    <td>${escHtml(h.cls)}</td>
+    <td style="font-family:monospace;color:var(--AC);text-align:center">${escHtml(h.seatNo||'—')}</td>
+    <td>${escHtml(h.name)}</td>
+    <td><span style="font-size:12px;color:var(--mut)">${escHtml(h.reason||'—')}</span></td>
     <td style="font-size:12px;white-space:nowrap">${fmtDate(h.borrowTime)}</td>
-    <td style="font-size:12px;white-space:nowrap">${fmtDate(h.returnTime)}</td>
-    <td style="font-size:12px;color:var(--mut)">${ret}</td>
+    <td style="font-size:12px">${returnCell}</td>
+    <td style="font-size:12px;color:var(--mut)">${escHtml(ret)}</td>
     <td>${apv}</td></tr>`;
   }).join('');
   document.getElementById('ph-tbl').innerHTML=`<table><thead><tr><th>琴房</th><th>班級</th><th>座號</th><th>借用者</th><th>原因</th><th>借出時間</th><th>歸還時間</th><th>歸還者</th><th>教師同意</th></tr></thead><tbody>${rows}</tbody></table>`;
