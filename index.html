@@ -1602,11 +1602,9 @@ function confBorrow(id){
   // 從琴房資料中讀取 lockIds（後台「琴房管理」設定的塗鴉 Lock ID）
   const rawLockIds = Array.isArray(r.lockIds) ? r.lockIds.filter(Boolean) : [];
 
-  // pwdEnabled 預設 true；若明確設為 false 則走實體鑰匙
-  const pwdEnabled = r.pwdEnabled !== false;
-
-  // 密碼模式：不寫借還紀錄，只在實體鑰匙模式寫紀錄
-  const isPwdMode = rawLockIds.length > 0 && pwdEnabled;
+  // 必須明確設定 pwdEnabled===true 才算密碼模式
+  // （undefined/null/false 都視為實體鑰匙，避免快取舊資料誤判）
+  const isPwdMode = rawLockIds.length > 0 && r.pwdEnabled === true;
 
   r.status='bw';r.borrower={cls:cls2,seatNo:padded,name:personName,time:nowT(),reason:rt};
 
@@ -1627,7 +1625,7 @@ function confBorrow(id){
 
   if(!isPwdMode) {
     // 實體鑰匙模式（無 Lock ID 或已關閉派發密碼）
-    const reason = !pwdEnabled && rawLockIds.length > 0
+    const reason = r.pwdEnabled !== true && rawLockIds.length > 0
       ? '此琴房目前暫停派發密碼，請至鑰匙存放處自取鑰匙'
       : '請至鑰匙存放處自取鑰匙';
     showM(`<div class="mt" style="text-align:center;font-size:18px;padding-bottom:.75rem">✅ 借用完成</div>
@@ -2278,7 +2276,7 @@ function renderRMgmt(){
           (function(){
             const hasLock=(r.lockIds&&r.lockIds.length>0);
             if(!hasLock) return '<span style="font-size:11px;color:var(--mut)">—<br><span style="font-size:10px">無Lock ID</span></span>';
-            const on=r.pwdEnabled!==false; // 預設 true
+            const on=r.pwdEnabled === true; // 必須明確開啟
             return '<label style="display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer">'+
               '<input type="checkbox" '+(on?'checked':'')+
               ' onchange="toggleRoomPwd('+Q+rid+Q+',this.checked)"'+
