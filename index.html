@@ -156,6 +156,7 @@ tbody tr:hover td{background:var(--bg)}
 .lc{max-width:380px;margin:5rem auto;background:var(--sur);border-radius:var(--rl);border:1px solid var(--bdr);padding:2rem;box-shadow:var(--shm)}
 
 /* ── PHOTO THUMB ── */
+.photo-modal-img{width:100%;height:auto;display:block;border-radius:8px;border:1px solid var(--bdr)}
 .pt{width:44px;height:34px;border-radius:4px;object-fit:cover;cursor:pointer;border:1px solid var(--bdr)}
 
 /* ── BADGE ── */
@@ -614,7 +615,7 @@ function initFirebase(){
         // 同步本機備份（過濾照片避免空間不足）
         try{
           const lite=JSON.parse(JSON.stringify(DB));
-          if(lite.history) lite.history=lite.history.map(h=>h.photo&&h.photo.length>500?{...h,photo:'[photo]'}:h);
+          if(lite.history) lite.history=lite.history.map(liteHist);
           localStorage.setItem(SK, JSON.stringify(lite));
         }catch(e){}
         // 更新畫面
@@ -672,25 +673,28 @@ function loadDB(){
   return defDB();
 }
 
+// 本機備份不存 base64 大圖（雲端 Firebase 仍保留完整資料）
+function liteHist(h){
+  const o={...h};
+  ['photo','borrowPhoto','returnPhoto'].forEach(k=>{if(o[k]&&o[k].length>500)o[k]='[photo]';});
+  return o;
+}
 function saveDB(){
   // 1. 寫入本機備份（照片不存入 localStorage，避免空間不足）
   try{
     const lite = JSON.parse(JSON.stringify(DB));
     // 移除照片 base64（大檔案），只保留縮圖 flag
-    if(lite.history) lite.history = lite.history.map(h=>{
-      if(h.photo && h.photo.length > 500) return {...h, photo:'[photo]'};
-      return h;
-    });
+    if(lite.history) lite.history = lite.history.map(liteHist);
     localStorage.setItem(SK, JSON.stringify(lite));
   }catch(e){
     // 空間不足時嘗試清除最舊的 30 筆歷史照片再存
     try{
       if(DB.history){
         const sorted=[...DB.history].sort((a,b)=>new Date(a.borrowTime)-new Date(b.borrowTime));
-        sorted.slice(0, Math.min(30, sorted.length)).forEach(h=>{ h.photo=null; });
+        sorted.slice(0, Math.min(30, sorted.length)).forEach(h=>{ h.photo=null;h.borrowPhoto=null;h.returnPhoto=null; });
       }
       const lite2 = JSON.parse(JSON.stringify(DB));
-      if(lite2.history) lite2.history = lite2.history.map(h=>({...h, photo: h.photo&&h.photo.length>500?'[photo]':h.photo}));
+      if(lite2.history) lite2.history = lite2.history.map(liteHist);
       localStorage.setItem(SK, JSON.stringify(lite2));
       showT('舊照片已自動清除以釋放空間','ti');
     }catch(e2){ showT('本機儲存空間不足，請至後台清除舊紀錄','td2'); }
@@ -886,8 +890,19 @@ function setFL(btn,f){
 }
 
 /* ═══ ROOMS ═══ */
+function _repairNote(r){
+  // 該琴房尚未完成的報修（待處理 / 處理中）→ 顯示在卡片上讓大家知道
+  var list=(DB.repairs||[]).filter(function(x){return (x.room===r.name||x.room===r.id)&&x.status!=='已完成';});
+  if(!list.length)return '';
+  return list.slice(0,3).map(function(x){
+    var t=escHtml(x.type)+(x.detail?'：'+escHtml(x.detail):'');
+    var st=x.status==='處理中'?'（處理中）':'';
+    return '<div class="ri" style="color:var(--A);background:var(--Al);border:1px solid var(--Ab);border-radius:6px;padding:3px 6px;margin-top:4px;font-size:10px;line-height:1.4;word-break:break-all">🔧 報修：'+t+st+'</div>';
+  }).join('')+(list.length>3?'<div class="ri" style="font-size:10px;color:var(--A)">…另有 '+(list.length-3)+' 筆報修</div>':'');
+}
 function _roomCard(r){
   var cc=r.kd?'dk':r.status,badge='',info='';
+  var rnote=_repairNote(r);
   if(r.kd){badge='<div class="rb bdk">🚫 禁止借用</div>';}
   else if(r.status==='av'){
     let blk=[];
@@ -901,8 +916,8 @@ function _roomCard(r){
   } else if(r.status==='bw'){
     badge='<div class="rb bbw">● 借用中</div>';
     info='<div class="ri">'+r.borrower.cls+'<br>'+(r.borrower.seatNo||'')+'號 '+r.borrower.name+'<br>自 '+r.borrower.time+' 起<br><span style="color:var(--AC);font-size:10px">'+(r.borrower.reason||'')+'</span></div>';
-  }else{badge='<div class="rb brp">⚠ 維修中</div>';info='<div class="ri">'+(r.issue||'')+'</div>';}
-  return '<div class="rc '+cc+'" onclick="openRM(&quot;'+r.id+'&quot;)"><div class="rn">'+r.name+'</div>'+badge+info+'</div>';
+  }else{badge='<div class="rb brp">⚠ 維修中</div>';info=rnote?'':'<div class="ri">'+escHtml(r.issue||'')+'</div>';}
+  return '<div class="rc '+cc+'" onclick="openRM(&quot;'+r.id+'&quot;)"><div class="rn">'+r.name+'</div>'+badge+info+rnote+'</div>';
 }
 function renderRooms(){
   var grid=document.getElementById('rooms-grid');
@@ -1609,8 +1624,12 @@ function confBorrow(id){
   r.status='bw';r.borrower={cls:cls2,seatNo:padded,name:personName,time:nowT(),reason:rt};
 
   if(!isPwdMode){
-    // 實體鑰匙模式才寫 history（需要歸還登記才完成）
-    DB.history.unshift({id:++DB.ids.h,room:r.name,rid:r.id,cls:cls2,seatNo:padded,name:personName,borrowTime:ts(),returnTime:null,photo:cpBorrow||null,reason:rt,approvedBy:_approvedBy});
+    // 實體鑰匙模式：需要歸還登記才完成
+    DB.history.unshift({id:++DB.ids.h,room:r.name,rid:r.id,cls:cls2,seatNo:padded,name:personName,borrowTime:ts(),returnTime:null,borrowPhoto:cpBorrow||null,reason:rt,approvedBy:_approvedBy});
+  } else {
+    // 密碼模式：同樣留下紀錄（含借用照片），後台可查；公開借還紀錄會自動隱藏此類
+    const _t=ts();
+    DB.history.unshift({id:++DB.ids.h,room:r.name,rid:r.id,cls:cls2,seatNo:padded,name:personName,borrowTime:_t,returnTime:_t,borrowPhoto:cpBorrow||null,reason:rt,approvedBy:_approvedBy,note:'密碼開門自動歸還'});
   }
 
   // 儲存供後段流程完成後朗讀用
@@ -1880,7 +1899,7 @@ function takePhoto(){
   if(_bcr){_bcr.disabled=false;_bcr.removeAttribute('disabled');}
   const _cst=document.getElementById('cam-status');if(_cst)_cst.textContent='✅ 照片上傳中...';
   uploadPhotoToStorage(dataUrl,'return').then(url=>{
-    cp=url;
+    if(cp===dataUrl)cp=url; else swapHistPhoto(dataUrl,url);
     const st=document.getElementById('cam-status');
     if(st) st.textContent = url.startsWith('http') ? '✅ 照片已上傳' : '✅ 照片已拍攝，可確認歸還';
   });
@@ -1972,8 +1991,13 @@ function _doReturn(id, cls, padded, personName, selectedLockId){
   const h=DB.history.find(x=>x.rid===id&&!x.returnTime);
   const now=ts();
   const person = {name: personName};
-  if(h){h.returnTime=now;h.photo=cp;h.returner={cls,seatNo:padded,name:personName};}
-  else DB.history.unshift({id:++DB.ids.h,room:r.name,rid:r.id,cls:r.borrower?.cls||cls,seatNo:r.borrower?.seatNo||padded,name:r.borrower?.name||personName,borrowTime:r.borrower?.time||now,returnTime:now,photo:cp,reason:r.borrower?.reason||'',returner:{cls,seatNo:padded,name:personName}});
+  if(h){
+    // 舊資料相容：舊版借用照片放在 photo，先搬到 borrowPhoto 再存歸還照片
+    if(!h.borrowPhoto&&h.photo){h.borrowPhoto=h.photo;}
+    delete h.photo;
+    h.returnTime=now;h.returnPhoto=cp;h.returner={cls,seatNo:padded,name:personName};
+  }
+  else DB.history.unshift({id:++DB.ids.h,room:r.name,rid:r.id,cls:r.borrower?.cls||cls,seatNo:r.borrower?.seatNo||padded,name:r.borrower?.name||personName,borrowTime:r.borrower?.time||now,returnTime:now,returnPhoto:cp,reason:r.borrower?.reason||'',returner:{cls,seatNo:padded,name:personName}});
   r.status='av';delete r.borrower;cp=null;stopCam();nkReset('rn2');
   saveDB();renderStats();renderRooms();
   closeM();
@@ -2072,13 +2096,40 @@ function renderPubH(){
   }).join('');
   document.getElementById('ph-tbl').innerHTML=`<table><thead><tr><th>琴房</th><th>班級</th><th>座號</th><th>借用者</th><th>原因</th><th>借出時間</th><th>歸還時間</th><th>歸還者</th><th>教師同意</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
+function okPhoto(p){return typeof p==='string'&&(p.startsWith('http')||p.startsWith('data:image'));}
+// 舊版只有 photo：未歸還者 = 借用照片；已歸還者 = 歸還照片（借用照片當時已被覆蓋）
+function getBorrowPhoto(h){
+  if(okPhoto(h.borrowPhoto))return h.borrowPhoto;
+  if(!h.returnTime&&okPhoto(h.photo))return h.photo;
+  return null;
+}
+function getReturnPhoto(h){
+  if(okPhoto(h.returnPhoto))return h.returnPhoto;
+  if(h.returnTime&&!h.borrowPhoto&&okPhoto(h.photo))return h.photo;
+  return null;
+}
+function photoThumb(h,url,which){
+  if(!url)return '<span style="font-size:11px;color:var(--mut)">無</span>';
+  return `<img src="${url}" class="pt" onclick="vPhoto(${h.id})" title="點擊放大查看（${which}）" style="cursor:zoom-in" onerror="this.outerHTML='<span style=&quot;font-size:11px;color:var(--mut)&quot;>已過期</span>'">`;
+}
 function vPhoto(id){
   if(!Array.isArray(DB.history))DB.history=[];
-  const h=DB.history.find(x=>x.id==id);if(!h||!h.photo)return;
-  showM(`<div class="mt">📷 ${h.room} — ${h.cls} ${h.name}</div>
-    <img src="${h.photo}" class="photo-modal-img">
-    <div style="font-size:12px;color:var(--mut);text-align:center;margin-top:.5rem">${fmtDate(h.returnTime)}</div>
-    <div class="ma"><button class="btn btn-o" onclick="closeM()">關閉</button></div>`);
+  const h=DB.history.find(x=>x.id==id);if(!h)return;
+  const bp=getBorrowPhoto(h),rp=getReturnPhoto(h);
+  if(!bp&&!rp)return;
+  const who=(c,s,n)=>`${escHtml(c||'')} ${s?escHtml(s)+'號 ':''}${escHtml(n||'')}`;
+  const retWho=h.returner?who(h.returner.cls,h.returner.seatNo,h.returner.name):'—';
+  const box=(title,url,person,time)=>`<div style="flex:1;min-width:220px">
+      <div style="font-size:13px;font-weight:500;margin-bottom:4px">${title}</div>
+      ${url?`<img src="${url}" class="photo-modal-img" onerror="this.outerHTML='<div style=&quot;padding:2rem;text-align:center;color:var(--mut);font-size:12px&quot;>照片已過期或已刪除</div>'">`
+           :'<div style="padding:2rem;text-align:center;color:var(--mut);font-size:12px;border:1px dashed var(--bdr);border-radius:8px">無照片</div>'}
+      <div style="font-size:12px;color:var(--mut);text-align:center;margin-top:.4rem">${person}<br>${time?fmtDate(time):'—'}</div></div>`;
+  showM(`<div class="mt">📷 ${escHtml(h.room)} — 借還照片</div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap">
+      ${box('🔑 借用者照片',bp,who(h.cls,h.seatNo,h.name),h.borrowTime)}
+      ${box('↩ 歸還者照片',rp,retWho,h.returnTime)}
+    </div>
+    <div class="ma"><button class="btn btn-o" onclick="closeM()">關閉</button></div>`,true);
 }
 
 /* ═══ ADMIN NAV ═══ */
@@ -2384,14 +2435,13 @@ function renderAdmH(){
     <td style="font-size:11px;white-space:nowrap">${h.returnTime?fmtDate(h.returnTime):'<span style="color:var(--R)">未歸還</span>'}</td>
     <td style="font-size:12px">${ret}</td>
     <td>${apvA}</td>
-    <td>${h.photo
-      ?`<img src="${h.photo}" class="pt" onclick="vPhoto(${h.id})" title="點擊放大查看照片" style="cursor:zoom-in">`
-      :'<span style="font-size:11px;color:var(--mut)">無</span>'}</td>
+    <td>${photoThumb(h,getBorrowPhoto(h),'借用者')}</td>
+    <td>${photoThumb(h,getReturnPhoto(h),'歸還者')}</td>
     <td><button class="btn btn-d btn-xs" onclick="delHist(${h.id})">刪除</button></td></tr>`;
   }).join('');
   document.getElementById('ah-tbl').innerHTML=`<table><thead><tr>
     <th style="width:32px"><input type="checkbox" id="ah-chk-all" onchange="ahToggleAll(this.checked)" style="width:15px;height:15px;accent-color:var(--R);cursor:pointer"></th>
-    <th>琴房</th><th>班級</th><th>座號</th><th>借用者</th><th>原因</th><th>借出</th><th>歸還</th><th>歸還者</th><th>教師同意</th><th>照片</th><th></th>
+    <th>琴房</th><th>班級</th><th>座號</th><th>借用者</th><th>原因</th><th>借出</th><th>歸還</th><th>歸還者</th><th>教師同意</th><th>借用照片</th><th>歸還照片</th><th></th>
   </tr></thead><tbody>${rows}</tbody></table>`;
 }
 function ahToggleAll(checked){
@@ -2466,7 +2516,7 @@ function cycleRep(id){
   const r=DB.repairs.find(x=>x.id===id);const s=['待處理','處理中','已完成'];
   r.status=s[(s.indexOf(r.status)+1)%s.length];
   if(r.status==='已完成'){const rm=DB.rooms.find(x=>x.name===r.room||x.id===r.room);if(rm&&rm.status==='rp'){rm.status='av';delete rm.issue;renderRooms();renderStats();}}
-  saveDB();renderRepTbl();showT(`已更新：${r.status}`,'ti');
+  saveDB();renderRepTbl();renderRooms();showT(`已更新：${r.status}`,'ti');
 }
 
 /* ═══ REPAIR TYPES ═══ */
@@ -2631,6 +2681,13 @@ async function uploadPhotoToStorage(dataUrl, pathPrefix){
   }
 }
 
+// 上傳慢於送出時，紀錄裡暫存的是 base64；上傳完成後換成雲端網址
+function swapHistPhoto(dataUrl,url){
+  if(!url||!url.startsWith('http')||!Array.isArray(DB.history))return;
+  let hit=false;
+  DB.history.forEach(h=>{['photo','borrowPhoto','returnPhoto'].forEach(k=>{if(h[k]===dataUrl){h[k]=url;hit=true;}});});
+  if(hit)saveDB();
+}
 function takePhotoB(){
   const v2=document.getElementById('camv-b');if(!v2)return;
   const maxW=480, maxH=360;
@@ -2651,7 +2708,7 @@ function takePhotoB(){
   document.getElementById('cam-status-b').textContent='✅ 照片已拍攝，上傳中...';
   // 非同步上傳到 Storage
   uploadPhotoToStorage(dataUrl,'borrow').then(url=>{
-    cpBorrow=url; // 換成 Storage URL（或保留 base64 fallback）
+    if(cpBorrow===dataUrl)cpBorrow=url; else swapHistPhoto(dataUrl,url); // 已送出紀錄者改為補換成 Storage URL
     const st=document.getElementById('cam-status-b');
     if(st) st.textContent = url.startsWith('http') ? '✅ 照片已上傳' : '✅ 照片已拍攝，可確認借用';
   });
@@ -2704,11 +2761,10 @@ function purgeDBPhotos(cutMs){
   let count=0;
   if(!DB.history) return count;
   DB.history.forEach(h=>{
-    if(!h.photo) return;
     const t=new Date(h.borrowTime||h.returnTime||0).getTime();
-    if(t < cutMs && h.photo.startsWith('data:')){
-      h.photo=null; count++;
-    }
+    ['photo','borrowPhoto','returnPhoto'].forEach(k=>{
+      if(h[k]&&h[k].startsWith('data:')&&t<cutMs){h[k]=null;count++;}
+    });
   });
   return count;
 }
@@ -2761,9 +2817,10 @@ function purgeAllHistory(){
 function renderMaintain(){
   // 照片統計
   const total=DB.history?.length||0;
-  const withPhoto=(DB.history||[]).filter(h=>h.photo).length;
-  const base64Count=(DB.history||[]).filter(h=>h.photo&&h.photo.startsWith('data:')).length;
-  const urlCount=(DB.history||[]).filter(h=>h.photo&&h.photo.startsWith('http')).length;
+  const _pk=h=>['photo','borrowPhoto','returnPhoto'].map(k=>h[k]).filter(Boolean);
+  const withPhoto=(DB.history||[]).filter(h=>_pk(h).length).length;
+  const base64Count=(DB.history||[]).reduce((n,h)=>n+_pk(h).filter(x=>x.startsWith('data:')).length,0);
+  const urlCount=(DB.history||[]).reduce((n,h)=>n+_pk(h).filter(x=>x.startsWith('http')).length,0);
   const el=document.getElementById('photo-stats');
   if(el) el.innerHTML=
     `總借還紀錄：<strong>${total}</strong> 筆　｜　有照片：<strong>${withPhoto}</strong> 筆<br>`+
