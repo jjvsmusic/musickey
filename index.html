@@ -68,7 +68,8 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--txt)
 .rooms-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:10px}
 .rc{background:var(--sur);border-radius:var(--rl);border:1.5px solid var(--bdr);padding:.875rem .875rem .75rem;cursor:pointer;transition:all .15s;position:relative;overflow:hidden}
 .rc::before{content:'';position:absolute;top:0;left:0;width:4px;height:100%}
-.rc.av::before{background:var(--G)}.rc.bw::before{background:var(--R)}.rc.rp::before{background:var(--A)}.rc.dk::before{background:#888}
+.rc.avr{border-color:var(--Ab);background:var(--Al)}
+.rc.av::before{background:var(--G)}.rc.avr::before{background:#D98A00}.rc.bw::before{background:var(--R)}.rc.rp::before{background:var(--A)}.rc.dk::before{background:#888}
 .rc:hover:not(.rp):not(.dk){box-shadow:var(--shm);transform:translateY(-1px)}
 .rc.rp,.rc.dk{cursor:not-allowed;opacity:.7}
 .rn{font-size:24px;font-weight:700;font-family:'IBM Plex Mono',monospace;line-height:1;margin-bottom:6px}
@@ -903,6 +904,7 @@ function _repairNote(r){
 function _roomCard(r){
   var cc=r.kd?'dk':r.status,badge='',info='';
   var rnote=_repairNote(r);
+  if(r.status==='av'&&!r.kd&&rnote)cc='av avr';
   if(r.kd){badge='<div class="rb bdk">🚫 禁止借用</div>';}
   else if(r.status==='av'){
     let blk=[];
@@ -910,6 +912,8 @@ function _roomCard(r){
     if(blk.length){
       badge='<div class="rb" style="background:var(--Al);color:var(--A);border-color:var(--Ab)">⏰ 限制時段</div>';
       info='<div class="ri" style="color:var(--A);font-size:10px">'+blk.map(s=>s.label||s.start+'–'+s.end).join('、')+'</div>';
+    } else if(rnote){
+      badge='<div class="rb" style="background:#FFE9B0;color:#7A4A00;border-color:#D98A00">✓ 可借用・有報修</div>';
     } else {
       badge='<div class="rb bav">✓ 可借用</div>';
     }
@@ -2048,7 +2052,7 @@ function submitRep(){
   const rm=DB.rooms.find(r=>r.id===rid);
   if(!Array.isArray(DB.repairs))DB.repairs=[];
   if(!DB.ids)DB.ids={h:100,rep:10,ppl:30};
-  if(rm&&type!=='鑰匙遺失'){rm.status='rp';rm.issue=type;}
+  // 報修登記只留紀錄、在琴房卡片顯示備注；琴房仍可借用，是否「維修中」由後台管理/維修人員設定
   DB.repairs.unshift({id:++DB.ids.rep,room:rm?.name||rid,type,detail,reporter:name,cls,time:ts(),status:'待處理',note:''});
   saveDB();closeM();renderRooms();renderStats();showT('報修申請已提交','ts');
 }
@@ -2497,7 +2501,11 @@ function renderRepTbl(){
         <input type="text" value="${r.note||''}" placeholder="處理說明..." style="font-size:12px;padding:4px 8px"
           onchange="updateRepNote(${r.id},this.value)" style="width:120px">
       </td>
-      <td><button class="btn btn-o btn-xs" onclick="cycleRep(${r.id})">→ ${next}</button></td>
+      <td style="white-space:nowrap"><button class="btn btn-o btn-xs" onclick="cycleRep(${r.id})">→ ${next}</button>
+        ${(()=>{const rm=DB.rooms.find(x=>x.name===r.room||x.id===r.room);if(!rm||r.status==='已完成')return '';
+          return rm.status==='rp'
+            ?`<button class="btn btn-xs" style="color:var(--G);border:1px solid var(--Gb);background:transparent;margin-left:4px" onclick="repSetRoomRp('${rm.id}',false)">解除維修中</button>`
+            :`<button class="btn btn-w btn-xs" style="margin-left:4px" onclick="repSetRoomRp('${rm.id}',true,${r.id})">設為維修中</button>`;})()}</td>
       <td><button class="btn btn-d btn-xs" onclick="delRep(${r.id})">刪除</button></td></tr>`;
   }).join('');
   document.getElementById('rep-tbl').innerHTML=`<table><thead><tr><th>琴房</th><th>類型</th><th>說明</th><th>回報者</th><th>時間</th><th>狀態</th><th>處理說明</th><th>切換</th><th>操作</th></tr></thead><tbody>${rows}</tbody></table>`;
@@ -2510,6 +2518,20 @@ function delRep(id){
   if(rm&&rm.status==='rp'&&rm.issue===r.type){rm.status='av';delete rm.issue;}
   DB.repairs=DB.repairs.filter(x=>x.id!==id);
   saveDB();renderRepTbl();renderRooms();renderStats();showT('維修紀錄已刪除','ti');
+}
+// 維修人員/管理員：設定琴房「維修中」（禁止借用）或解除
+function repSetRoomRp(rid,on,repId){
+  const rm=DB.rooms.find(x=>x.id===rid);if(!rm)return;
+  if(on){
+    if(rm.status==='bw'){showT('此琴房借用中，請待歸還後再設定','tw2');return;}
+    const r=DB.repairs.find(x=>x.id===repId);
+    rm.status='rp';rm.issue=r?r.type:'維修中';
+    if(r&&r.status==='待處理')r.status='處理中';
+  }else{
+    if(rm.status==='rp'){rm.status='av';delete rm.issue;}
+  }
+  saveDB();renderRepTbl();renderRooms();renderStats();
+  showT(on?'已設為維修中（禁止借用）':'已解除維修中','ti');
 }
 function updateRepNote(id,note){const r=DB.repairs.find(x=>x.id===id);if(r){r.note=note;saveDB();}}
 function cycleRep(id){
